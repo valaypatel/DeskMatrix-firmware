@@ -7,6 +7,7 @@
 #include "WidgetRegistry.h"
 #include "screens/ClockWidget.h"
 #include "services/WeatherService.h"
+#include "services/RemoteClockService.h"
 #include "screens/WeatherWidget.h"
 #include "ScreenStateMachine.h"
 #include "TiltDebouncer.h"
@@ -23,6 +24,7 @@ AppConfig appConfig;
 ConfigServer configServer(appConfig, settingsStore);
 WidgetRegistry widgetRegistry;
 WeatherService* weatherService = nullptr;
+RemoteClockService remoteClockService(51.5074f, -0.1278f, 6UL * 3600UL * 1000UL); // London, poll every 6h
 ScreenStateMachine stateMachine;
 TiltDebouncer tiltDebouncer(25.0f, 5);
 bool imuAvailable = false;
@@ -78,15 +80,24 @@ void initWeatherService() {
 
 AppConfig defaultConfig() {
   AppConfig cfg;
-  WidgetConfig clock;
-  clock.id = "w1"; clock.type = "clock"; clock.style = "digital";
-  clock.color = "#FFDE59"; clock.x = 0; clock.y = 0; clock.w = 24; clock.h = 10;
-  cfg.homeWidgets.push_back(clock);
+
+  WidgetConfig localClock;
+  localClock.id = "w1"; localClock.type = "clock"; localClock.style = "digital_with_day";
+  localClock.color = "#FFDE59"; localClock.icon = "flag_in";
+  localClock.x = 0; localClock.y = 0; localClock.w = 32; localClock.h = 16;
+  cfg.homeWidgets.push_back(localClock);
+
+  WidgetConfig remoteClock;
+  remoteClock.id = "w4"; remoteClock.type = "clock"; remoteClock.style = "digital";
+  remoteClock.color = "#FFDE59"; remoteClock.icon = "flag_gb";
+  remoteClock.location = "51.5074,-0.1278"; // London
+  remoteClock.x = 0; remoteClock.y = 16; remoteClock.w = 32; remoteClock.h = 16;
+  cfg.homeWidgets.push_back(remoteClock);
 
   WidgetConfig weather;
   weather.id = "w2"; weather.type = "weather"; weather.style = "icon_temp";
-  weather.icon = "weather_sunny"; weather.color = "#4C9AFF";
-  weather.x = 0; weather.y = 40; weather.w = 16; weather.h = 16;
+  weather.icon = "weather_auto"; weather.color = "#4C9AFF";
+  weather.x = 32; weather.y = 0; weather.w = 32; weather.h = 32;
   weather.dataSource = "ds_weather";
   cfg.homeWidgets.push_back(weather);
 
@@ -167,7 +178,7 @@ void setup() {
   settingsStore.begin();
   loadOrInitConfig();
 
-  registerClockWidget(widgetRegistry);
+  registerClockWidget(widgetRegistry, remoteClockService);
   initWeatherService();
   registerWeatherWidget(widgetRegistry, *weatherService);
 
@@ -199,6 +210,7 @@ void loop() {
   }
 
   weatherService->loop();
+  remoteClockService.loop();
 
   unsigned long nowMs = millis();
 
