@@ -8,6 +8,11 @@
 #include "screens/ClockWidget.h"
 #include "services/WeatherService.h"
 #include "screens/WeatherWidget.h"
+#include "ScreenStateMachine.h"
+#include "TiltDebouncer.h"
+#include "services/ImuHardware.h"
+#include "screens/DndScreen.h"
+#include "screens/BrbScreen.h"
 
 MatrixPanel_I2S_DMA *dma_display = nullptr;
 WiFiManager wm;
@@ -16,6 +21,9 @@ SettingsStore settingsStore;
 AppConfig appConfig;
 WidgetRegistry widgetRegistry;
 WeatherService* weatherService = nullptr;
+ScreenStateMachine stateMachine;
+TiltDebouncer tiltDebouncer(25.0f, 5);
+bool imuAvailable = false;
 
 void initWeatherService() {
   float lat = 0, lon = 0;
@@ -124,18 +132,51 @@ void setup() {
   initWeatherService();
   registerWeatherWidget(widgetRegistry, *weatherService);
 
+  imuAvailable = imuBegin();
+  if (!imuAvailable) Serial.println("IMU not found — DND/BRB disabled this boot.");
+
+  stateMachine.wifiConfigured(); // Wi-Fi already connected above; move state machine to HOME
+
   configTime(TIMEZONE_OFFSET_SEC, 0, "pool.ntp.org");
 }
 
 void loop() {
   weatherService->loop();
-  static unsigned long lastRenderMs = 0;
+
   unsigned long nowMs = millis();
+
+  static unsigned long lastImuPollMs = 0;
+  if (imuAvailable && (nowMs - lastImuPollMs) >= 150) {
+    lastImuPollMs = nowMs;
+    float angle = imuReadTiltDegrees();
+    TiltDirection dir = tiltDebouncer.update(angle);
+    if (dir == TiltDirection::LEFT) stateMachine.tiltLeft();
+    else if (dir == TiltDirection::RIGHT) stateMachine.tiltRight();
+    else stateMachine.tiltCenter();
+  }
+
+  static unsigned long lastRenderMs = 0;
   if ((nowMs - lastRenderMs) >= 1000) {
     lastRenderMs = nowMs;
-    dma_display->clearScreen();
-    for (const auto& w : appConfig.homeWidgets) {
-      widgetRegistry.draw(w.type, RenderContext{dma_display, &w});
+    switch (stateMachine.mode()) {
+      case ScreenMode::HOME:
+        dma_display->clearScreen();
+        for (const auto& w : appConfig.homeWidgets) {
+          widgetRegistry.draw(w.type, RenderContext{dma_display, &w});
+        }
+        break;
+      case ScreenMode::DND:
+        drawDndScreen(dma_display);
+        break;
+      case ScreenMode::BRB:
+        drawBrbScreen(dma_display);
+        break;
+      case ScreenMode::INTERRUPT_TAKEOVER:
+        // Scaffolded for future data sources (e.g. Jira) — MVP's `screens`
+        // list is empty, so this state is never entered yet.
+        break;
+      default:
+        break;
     }
   }
 }
