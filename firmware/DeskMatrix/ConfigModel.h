@@ -11,6 +11,7 @@ struct WidgetConfig {
     std::string icon;
     int x = 0, y = 0, w = 0, h = 0;
     std::string dataSource;
+    std::string location; // non-empty => remote-timezone clock; empty => local clock
 };
 
 struct DataSourceConfig {

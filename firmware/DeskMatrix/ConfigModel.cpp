@@ -23,6 +23,7 @@ bool parseConfig(const std::string& json, AppConfig& out, std::string& error) {
         wc.w = w["w"] | 0;
         wc.h = w["h"] | 0;
         wc.dataSource = std::string(w["dataSource"] | "");
+        wc.location = std::string(w["location"] | "");
         if (wc.id.empty() || wc.type.empty()) {
             error = "widget missing required id/type";
             return false;
@@ -63,6 +64,7 @@ std::string serializeConfig(const AppConfig& config) {
         wo["w"] = w.w;
         wo["h"] = w.h;
         if (!w.dataSource.empty()) wo["dataSource"] = w.dataSource;
+        if (!w.location.empty()) wo["location"] = w.location;
     }
 
     JsonObject sources = doc["dataSources"].to<JsonObject>();
