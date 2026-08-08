@@ -34,7 +34,7 @@ void WeatherService::fetch() {
     HTTPClient http;
     char url[224];
     snprintf(url, sizeof(url),
-        "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current=temperature_2m,weather_code&timezone=auto",
+        "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current=temperature_2m,weather_code,is_day&timezone=auto",
         lat_, lon_);
     Serial.printf("[weather] GET %s\n", url);
     // Simplification: HTTPClient::begin(url) on esp32 core 3.x auto-creates a
@@ -68,6 +68,7 @@ void WeatherService::fetch() {
 
     latest_.temperatureC = doc["current"]["temperature_2m"] | latest_.temperatureC;
     latest_.weatherCode = doc["current"]["weather_code"] | latest_.weatherCode;
+    latest_.isDay = (doc["current"]["is_day"] | 1) != 0;
     latest_.valid = true;
     Serial.printf("[weather] parsed OK: temp=%.1fC code=%d\n", latest_.temperatureC, latest_.weatherCode);
 

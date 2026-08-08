@@ -4,6 +4,7 @@
 struct WeatherReading {
     float temperatureC = 0;
     int weatherCode = 0;
+    bool isDay = true;
     bool valid = false;
 };
 
