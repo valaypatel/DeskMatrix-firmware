@@ -4,12 +4,15 @@
 #include "config.h"
 #include "ConfigModel.h"
 #include "SettingsStore.h"
+#include "WidgetRegistry.h"
+#include "screens/ClockWidget.h"
 
 MatrixPanel_I2S_DMA *dma_display = nullptr;
 WiFiManager wm;
 
 SettingsStore settingsStore;
 AppConfig appConfig;
+WidgetRegistry widgetRegistry;
 
 AppConfig defaultConfig() {
   AppConfig cfg;
@@ -100,8 +103,20 @@ void setup() {
   connectWifi();
   settingsStore.begin();
   loadOrInitConfig();
+
+  registerClockWidget(widgetRegistry);
+
+  configTime(TIMEZONE_OFFSET_SEC, 0, "pool.ntp.org");
 }
 
 void loop() {
-  // Later tasks: state machine tick, HTTP server handling, IMU polling, widget rendering.
+  static unsigned long lastRenderMs = 0;
+  unsigned long nowMs = millis();
+  if ((nowMs - lastRenderMs) >= 1000) {
+    lastRenderMs = nowMs;
+    dma_display->clearScreen();
+    for (const auto& w : appConfig.homeWidgets) {
+      widgetRegistry.draw(w.type, RenderContext{dma_display, &w});
+    }
+  }
 }
