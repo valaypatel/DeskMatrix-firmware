@@ -13,12 +13,14 @@
 #include "services/ImuHardware.h"
 #include "screens/DndScreen.h"
 #include "screens/BrbScreen.h"
+#include "web/ConfigServer.h"
 
 MatrixPanel_I2S_DMA *dma_display = nullptr;
 WiFiManager wm;
 
 SettingsStore settingsStore;
 AppConfig appConfig;
+ConfigServer configServer(appConfig, settingsStore);
 WidgetRegistry widgetRegistry;
 WeatherService* weatherService = nullptr;
 ScreenStateMachine stateMachine;
@@ -137,10 +139,16 @@ void setup() {
 
   stateMachine.wifiConfigured(); // Wi-Fi already connected above; move state machine to HOME
 
+  configServer.begin();
+  Serial.print("Config API ready at http://");
+  Serial.println(WiFi.localIP());
+
   configTime(TIMEZONE_OFFSET_SEC, 0, "pool.ntp.org");
 }
 
 void loop() {
+  configServer.loop();
+
   weatherService->loop();
 
   unsigned long nowMs = millis();
