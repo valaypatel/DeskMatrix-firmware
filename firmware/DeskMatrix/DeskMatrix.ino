@@ -187,10 +187,14 @@ void loop() {
   configServer.loop();
 
   if (configServer.configChanged()) {
+    Serial.println("[config] change detected");
     float lat, lon;
     int pollSec;
     if (findWeatherConfig(lat, lon, pollSec)) {
+      Serial.printf("[config] applying weather lat=%.4f lon=%.4f pollSec=%d\n", lat, lon, pollSec);
       weatherService->configure(lat, lon, pollSec);
+    } else {
+      Serial.println("[config] no weather data source found in updated config");
     }
   }
 
@@ -198,6 +202,7 @@ void loop() {
 
   unsigned long nowMs = millis();
 
+#if ENABLE_IMU_TILT
   static unsigned long lastImuPollMs = 0;
   if (imuAvailable && (nowMs - lastImuPollMs) >= 150) {
     lastImuPollMs = nowMs;
@@ -207,6 +212,7 @@ void loop() {
     else if (dir == TiltDirection::RIGHT) stateMachine.tiltRight();
     else stateMachine.tiltCenter();
   }
+#endif
 
   static unsigned long lastRenderMs = 0;
   if ((nowMs - lastRenderMs) >= 1000) {
