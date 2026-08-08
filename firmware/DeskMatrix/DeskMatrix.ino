@@ -2,9 +2,53 @@
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 #include <WiFiManager.h>
 #include "config.h"
+#include "ConfigModel.h"
+#include "SettingsStore.h"
 
 MatrixPanel_I2S_DMA *dma_display = nullptr;
 WiFiManager wm;
+
+SettingsStore settingsStore;
+AppConfig appConfig;
+
+AppConfig defaultConfig() {
+  AppConfig cfg;
+  WidgetConfig clock;
+  clock.id = "w1"; clock.type = "clock"; clock.style = "digital";
+  clock.color = "#FFDE59"; clock.x = 0; clock.y = 0; clock.w = 24; clock.h = 10;
+  cfg.homeWidgets.push_back(clock);
+
+  WidgetConfig weather;
+  weather.id = "w2"; weather.type = "weather"; weather.style = "icon_temp";
+  weather.icon = "weather_sunny"; weather.color = "#4C9AFF";
+  weather.x = 0; weather.y = 40; weather.w = 16; weather.h = 16;
+  weather.dataSource = "ds_weather";
+  cfg.homeWidgets.push_back(weather);
+
+  DataSourceConfig ds;
+  ds.id = "ds_weather"; ds.type = "weather"; ds.pollSec = 600;
+  ds.location = "40.7128,-74.0060"; // MVP default; overwritten by real config once pushed
+  cfg.dataSources.push_back(ds);
+
+  return cfg;
+}
+
+void loadOrInitConfig() {
+  std::string json;
+  if (settingsStore.load(json)) {
+    std::string error;
+    if (parseConfig(json, appConfig, error)) {
+      Serial.println("Loaded config from flash.");
+      return;
+    }
+    Serial.print("Stored config invalid, using default: ");
+    Serial.println(error.c_str());
+  } else {
+    Serial.println("No stored config found, using default.");
+  }
+  appConfig = defaultConfig();
+  settingsStore.save(serializeConfig(appConfig));
+}
 
 void initPanel() {
   HUB75_I2S_CFG mxconfig(PANEL_RES_X, PANEL_RES_Y, PANEL_CHAIN);
@@ -54,6 +98,8 @@ void setup() {
   delay(1000);
   initPanel();
   connectWifi();
+  settingsStore.begin();
+  loadOrInitConfig();
 }
 
 void loop() {
