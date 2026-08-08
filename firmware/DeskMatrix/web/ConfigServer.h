@@ -10,6 +10,11 @@ public:
     void begin();
     void loop();
 
+    // Returns true once after a successful PUT /api/config (and resets to
+    // false), so DeskMatrix.ino's loop() can notice a config change and
+    // re-apply it to live services (e.g. WeatherService) without a reboot.
+    bool configChanged();
+
 private:
     void handleGetConfig();
     void handlePutConfig();
@@ -20,4 +25,5 @@ private:
     WebServer server_;
     AppConfig& appConfig_;
     SettingsStore& store_;
+    bool configChanged_ = false;
 };

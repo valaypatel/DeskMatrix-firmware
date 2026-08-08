@@ -24,6 +24,12 @@ void ConfigServer::begin() {
 
 void ConfigServer::loop() { server_.handleClient(); }
 
+bool ConfigServer::configChanged() {
+    bool changed = configChanged_;
+    configChanged_ = false;
+    return changed;
+}
+
 void ConfigServer::handleGetConfig() {
     server_.send(200, "application/json", serializeConfig(appConfig_).c_str());
 }
@@ -38,6 +44,7 @@ void ConfigServer::handlePutConfig() {
     }
     appConfig_ = parsed;
     store_.save(serializeConfig(appConfig_));
+    configChanged_ = true;
     server_.send(200, "application/json", "{\"status\":\"ok\"}");
 }
 

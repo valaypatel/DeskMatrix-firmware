@@ -27,16 +27,52 @@ ScreenStateMachine stateMachine;
 TiltDebouncer tiltDebouncer(25.0f, 5);
 bool imuAvailable = false;
 
-void initWeatherService() {
-  float lat = 0, lon = 0;
-  int pollSec = 600;
-  for (const auto& ds : appConfig.dataSources) {
-    if (ds.type == "weather") {
-      sscanf(ds.location.c_str(), "%f,%f", &lat, &lon);
-      pollSec = ds.pollSec;
+// Finds the weather widget's data source (preferring its `dataSource` id
+// field, falling back to a type-based scan if no widget/match is found) and
+// fills lat/lon/pollSec from it. Returns true if a weather data source was
+// found at all.
+bool findWeatherConfig(float& lat, float& lon, int& pollSec) {
+  lat = 0; lon = 0; pollSec = 600;
+
+  const DataSourceConfig* match = nullptr;
+
+  std::string weatherDataSourceId;
+  for (const auto& w : appConfig.homeWidgets) {
+    if (w.type == "weather") {
+      weatherDataSourceId = w.dataSource;
       break;
     }
   }
+
+  if (!weatherDataSourceId.empty()) {
+    for (const auto& ds : appConfig.dataSources) {
+      if (ds.id == weatherDataSourceId) {
+        match = &ds;
+        break;
+      }
+    }
+  }
+
+  if (!match) {
+    for (const auto& ds : appConfig.dataSources) {
+      if (ds.type == "weather") {
+        match = &ds;
+        break;
+      }
+    }
+  }
+
+  if (!match) return false;
+
+  sscanf(match->location.c_str(), "%f,%f", &lat, &lon);
+  pollSec = match->pollSec;
+  return true;
+}
+
+void initWeatherService() {
+  float lat, lon;
+  int pollSec;
+  findWeatherConfig(lat, lon, pollSec);
   weatherService = new WeatherService(lat, lon, pollSec);
 }
 
@@ -84,6 +120,7 @@ void initPanel() {
   mxconfig.gpio.e = 9;
   mxconfig.clkphase = false;
   mxconfig.driver = HUB75_I2S_CFG::FM6126A;
+  mxconfig.double_buff = true; // avoid tearing/flicker by drawing to a back buffer and flipping once per frame
 
   dma_display = new MatrixPanel_I2S_DMA(mxconfig);
   dma_display->begin();
@@ -149,6 +186,14 @@ void setup() {
 void loop() {
   configServer.loop();
 
+  if (configServer.configChanged()) {
+    float lat, lon;
+    int pollSec;
+    if (findWeatherConfig(lat, lon, pollSec)) {
+      weatherService->configure(lat, lon, pollSec);
+    }
+  }
+
   weatherService->loop();
 
   unsigned long nowMs = millis();
@@ -186,5 +231,6 @@ void loop() {
       default:
         break;
     }
+    dma_display->flipDMABuffer();
   }
 }

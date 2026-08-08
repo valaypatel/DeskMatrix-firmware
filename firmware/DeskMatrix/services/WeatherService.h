@@ -13,6 +13,11 @@ public:
     void loop(); // call every loop() iteration; internally rate-limits to pollSec
     WeatherReading latest() const { return latest_; }
 
+    // Updates the location/poll interval used for future fetches (e.g. after
+    // a config push) and resets the fetch timer so loop() fetches immediately
+    // with the new location on its next call.
+    void configure(float latitude, float longitude, int pollSec);
+
 private:
     void fetch();
     float lat_, lon_;

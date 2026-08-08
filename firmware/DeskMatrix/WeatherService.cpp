@@ -7,6 +7,13 @@
 WeatherService::WeatherService(float latitude, float longitude, int pollSec)
     : lat_(latitude), lon_(longitude), pollSec_(pollSec) {}
 
+void WeatherService::configure(float latitude, float longitude, int pollSec) {
+    lat_ = latitude;
+    lon_ = longitude;
+    pollSec_ = pollSec;
+    lastFetchMs_ = 0; // force an immediate fetch on the next loop()
+}
+
 void WeatherService::loop() {
     unsigned long nowMs = millis();
     if (lastFetchMs_ != 0 && (nowMs - lastFetchMs_) < (unsigned long)pollSec_ * 1000UL) {

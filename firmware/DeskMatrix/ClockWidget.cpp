@@ -3,6 +3,7 @@
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 #include <time.h>
 #include <cstdlib>
+#include "ColorUtil.h"
 
 static void drawDigitalClock(const RenderContext& ctx) {
     auto* display = static_cast<MatrixPanel_I2S_DMA*>(ctx.displayHandle);
@@ -16,9 +17,9 @@ static void drawDigitalClock(const RenderContext& ctx) {
     snprintf(buf, sizeof(buf), "%02d:%02d", timeInfo.tm_hour, timeInfo.tm_min);
 
     uint16_t color = display->color565(255, 222, 89);
-    if (ctx.widget->color.size() == 7 && ctx.widget->color[0] == '#') {
-        long rgb = strtol(ctx.widget->color.c_str() + 1, nullptr, 16);
-        color = display->color565((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+    uint8_t r, g, b;
+    if (parseHexColor(ctx.widget->color, r, g, b)) {
+        color = display->color565(r, g, b);
     }
 
     display->setTextSize(1);
