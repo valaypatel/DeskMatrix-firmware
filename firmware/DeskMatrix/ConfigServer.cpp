@@ -9,7 +9,9 @@ ConfigServer::ConfigServer(AppConfig& appConfig, SettingsStore& store)
 void ConfigServer::begin() {
     server_.on("/api/config", HTTP_GET, [this]() { handleGetConfig(); });
     server_.on("/api/config", HTTP_PUT, [this]() { handlePutConfig(); });
-    server_.on("/api/assets", HTTP_POST, [this]() { handlePostAsset(); });
+    server_.on("/api/assets", HTTP_POST,
+        [this]() { handlePostAssetResponse(); },
+        [this]() { handlePostAssetUpload(); });
     server_.on("/api/ota", HTTP_POST,
         [this]() {
             server_.send(200, "text/plain", Update.hasError() ? "FAIL" : "OK");
@@ -39,21 +41,27 @@ void ConfigServer::handlePutConfig() {
     server_.send(200, "application/json", "{\"status\":\"ok\"}");
 }
 
-void ConfigServer::handlePostAsset() {
+void ConfigServer::handlePostAssetUpload() {
+    HTTPUpload& upload = server_.upload();
+    static File assetFile;
+
+    if (upload.status == UPLOAD_FILE_START) {
+        if (!server_.hasArg("id")) return;
+        if (!LittleFS.exists("/assets")) LittleFS.mkdir("/assets");
+        std::string path = "/assets/" + std::string(server_.arg("id").c_str()) + ".bin";
+        assetFile = LittleFS.open(path.c_str(), "w");
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+        if (assetFile) assetFile.write(upload.buf, upload.currentSize);
+    } else if (upload.status == UPLOAD_FILE_END) {
+        if (assetFile) assetFile.close();
+    }
+}
+
+void ConfigServer::handlePostAssetResponse() {
     if (!server_.hasArg("id")) {
         server_.send(400, "text/plain", "missing ?id=");
         return;
     }
-    std::string path = "/assets/" + std::string(server_.arg("id").c_str()) + ".bin";
-    if (!LittleFS.exists("/assets")) LittleFS.mkdir("/assets");
-    File f = LittleFS.open(path.c_str(), "w");
-    if (!f) {
-        server_.send(500, "text/plain", "failed to open asset file");
-        return;
-    }
-    std::string body = server_.arg("plain").c_str();
-    f.write((const uint8_t*)body.data(), body.size());
-    f.close();
     server_.send(200, "application/json", "{\"status\":\"ok\"}");
 }
 

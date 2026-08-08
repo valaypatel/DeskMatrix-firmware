@@ -13,7 +13,8 @@ public:
 private:
     void handleGetConfig();
     void handlePutConfig();
-    void handlePostAsset();
+    void handlePostAssetUpload();
+    void handlePostAssetResponse();
     void handleOtaUpload();
 
     WebServer server_;
