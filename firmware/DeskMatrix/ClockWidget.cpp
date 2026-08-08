@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include "ColorUtil.h"
 #include "IconRenderer.h"
+#include <Fonts/TomThumb.h>
 
 static const char* kDayNames[7] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
 
@@ -45,25 +46,42 @@ void registerClockWidget(WidgetRegistry& registry, RemoteClockService& remoteClo
             color = display->color565(r, g, b);
         }
 
-        // Flag icon, if configured, sits just left of the time text. Exact
-        // offset/size (12x8 here) is a starting point — confirm/adjust by
-        // looking at the real panel once a real flag asset is uploaded
-        // (Task 10), since legibility at this scale can only really be
-        // judged on the actual hardware.
+        // Flag icon sits flush left of the time text, 12x9 (exact 4:3,
+        // matching the source 640x480 artwork) — bumped up from 9x7 for
+        // more real pixels to render the chakra/cross detail in, since at
+        // very small sizes nearest-neighbor downsampling of thin lines
+        // (chakra spokes, flag cross) loses/aliases detail regardless of
+        // aspect ratio being technically correct.
         int textX = ctx.widget->x;
         if (!ctx.widget->icon.empty()) {
-            drawIcon(display, ctx.widget->icon, ctx.widget->x, ctx.widget->y, 12, 8);
-            textX = ctx.widget->x + 14;
+            drawIcon(display, ctx.widget->icon, ctx.widget->x, ctx.widget->y, 12, 9);
+            textX = ctx.widget->x + 13;
         }
 
+        // TomThumb is a compact 3x5 pixel font (bundled with Adafruit GFX) —
+        // the default 5x7 font is too wide to fit "10:42 AM" plus a flag
+        // icon in a 32px-wide cell. Custom-font cursor Y is the glyph's
+        // baseline (bottom row), not its top-left corner: for a 5px-tall
+        // glyph centered in a 9px row (2px margin top/bottom, rows 2-6),
+        // baseline = widget_y + 7.
+        display->setFont(&TomThumb);
         display->setTextSize(1);
         display->setTextColor(color);
-        display->setCursor(textX, ctx.widget->y);
+        display->setCursor(textX, ctx.widget->y + 7);
         display->print(buf);
 
         if (showDay) {
-            display->setCursor(ctx.widget->x, ctx.widget->y + 8);
+            // Day is the third row of the local/remote clock block, laid
+            // out relative to the local widget's y (=2, the 2px top
+            // padding): row1 (local time) at y+0, row2 (remote time,
+            // separate widget) at absolute y=12 (2 + 9 row1 + 1 gap), row3
+            // (day, 5px tall — exactly the glyph height, no centering
+            // needed) at absolute y=22 (12 + 9 row2 + 1 gap) -> relative to
+            // this widget's y=2, that's +20, plus the +5 baseline offset
+            // (5px glyph fills the 5px row exactly).
+            display->setCursor(ctx.widget->x, ctx.widget->y + 25);
             display->print(kDayNames[timeInfo.tm_wday]);
         }
+        display->setFont(nullptr); // revert to default font for other widgets
     });
 }

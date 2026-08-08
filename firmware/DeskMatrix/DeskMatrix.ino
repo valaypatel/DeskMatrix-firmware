@@ -34,7 +34,7 @@ bool imuAvailable = false;
 // fills lat/lon/pollSec from it. Returns true if a weather data source was
 // found at all.
 bool findWeatherConfig(float& lat, float& lon, int& pollSec) {
-  lat = 0; lon = 0; pollSec = 600;
+  lat = 0; lon = 0; pollSec = 3600;
 
   const DataSourceConfig* match = nullptr;
 
@@ -83,26 +83,33 @@ AppConfig defaultConfig() {
 
   WidgetConfig localClock;
   localClock.id = "w1"; localClock.type = "clock"; localClock.style = "digital_with_day";
-  localClock.color = "#FFDE59"; localClock.icon = "flag_in";
-  localClock.x = 0; localClock.y = 0; localClock.w = 32; localClock.h = 16;
+  localClock.color = "#FFDE59"; // icon left blank: flags parked for now, revisit later
+  // Clock block only needs ~28px of the 32px-tall top-left quadrant, not
+  // the full height. Vertical stack: 2px top padding, row1 (local time,
+  // 9px — reserved for the flag's return later), 1px line space, row2
+  // (remote time, 9px, separate widget below), 1px line space, row3 (day,
+  // 5px, drawn by this widget — see ClockWidget.cpp), 2px bottom padding.
+  // y=2, 12, 22 (day) — block ends at y=27, +2 bottom pad = 29.
+  localClock.x = 1; localClock.y = 2; localClock.w = 31; localClock.h = 9;
   cfg.homeWidgets.push_back(localClock);
 
   WidgetConfig remoteClock;
   remoteClock.id = "w4"; remoteClock.type = "clock"; remoteClock.style = "digital";
-  remoteClock.color = "#FFDE59"; remoteClock.icon = "flag_gb";
+  remoteClock.color = "#FFDE59"; // icon left blank: flags parked for now, revisit later
   remoteClock.location = "51.5074,-0.1278"; // London
-  remoteClock.x = 0; remoteClock.y = 16; remoteClock.w = 32; remoteClock.h = 16;
+  remoteClock.x = 1; remoteClock.y = 12; remoteClock.w = 31; remoteClock.h = 9;
   cfg.homeWidgets.push_back(remoteClock);
 
   WidgetConfig weather;
   weather.id = "w2"; weather.type = "weather"; weather.style = "icon_temp";
   weather.icon = "weather_auto"; weather.color = "#4C9AFF";
-  weather.x = 32; weather.y = 0; weather.w = 32; weather.h = 32;
+  // Right column: x=32..62 (1px pad from the panel's right edge at x=63).
+  weather.x = 32; weather.y = 1; weather.w = 31; weather.h = 31;
   weather.dataSource = "ds_weather";
   cfg.homeWidgets.push_back(weather);
 
   DataSourceConfig ds;
-  ds.id = "ds_weather"; ds.type = "weather"; ds.pollSec = 600;
+  ds.id = "ds_weather"; ds.type = "weather"; ds.pollSec = 3600; // hourly
   ds.location = "40.7128,-74.0060"; // MVP default; overwritten by real config once pushed
   cfg.dataSources.push_back(ds);
 
