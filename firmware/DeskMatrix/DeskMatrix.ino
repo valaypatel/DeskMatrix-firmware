@@ -6,6 +6,8 @@
 #include "SettingsStore.h"
 #include "WidgetRegistry.h"
 #include "screens/ClockWidget.h"
+#include "services/WeatherService.h"
+#include "screens/WeatherWidget.h"
 
 MatrixPanel_I2S_DMA *dma_display = nullptr;
 WiFiManager wm;
@@ -13,6 +15,20 @@ WiFiManager wm;
 SettingsStore settingsStore;
 AppConfig appConfig;
 WidgetRegistry widgetRegistry;
+WeatherService* weatherService = nullptr;
+
+void initWeatherService() {
+  float lat = 0, lon = 0;
+  int pollSec = 600;
+  for (const auto& ds : appConfig.dataSources) {
+    if (ds.type == "weather") {
+      sscanf(ds.location.c_str(), "%f,%f", &lat, &lon);
+      pollSec = ds.pollSec;
+      break;
+    }
+  }
+  weatherService = new WeatherService(lat, lon, pollSec);
+}
 
 AppConfig defaultConfig() {
   AppConfig cfg;
@@ -105,11 +121,14 @@ void setup() {
   loadOrInitConfig();
 
   registerClockWidget(widgetRegistry);
+  initWeatherService();
+  registerWeatherWidget(widgetRegistry, *weatherService);
 
   configTime(TIMEZONE_OFFSET_SEC, 0, "pool.ntp.org");
 }
 
 void loop() {
+  weatherService->loop();
   static unsigned long lastRenderMs = 0;
   unsigned long nowMs = millis();
   if ((nowMs - lastRenderMs) >= 1000) {
