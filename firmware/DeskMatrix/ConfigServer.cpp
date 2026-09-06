@@ -121,6 +121,10 @@ void ConfigServer::handlePostScreensaverUpload() {
     } else if (raw.status == RAW_END) {
         if (g_screensaverTmpFile) g_screensaverTmpFile.close();
         if (g_screensaverHeaderValid) {
+            // LittleFS refuses to remove/rename a file that's still open —
+            // the currently-playing GIF holds /screensaver.gif open, so
+            // this must run before the remove/rename below, not after.
+            unloadScreensaverGif();
             if (LittleFS.exists("/screensaver.gif")) LittleFS.remove("/screensaver.gif");
             LittleFS.rename("/screensaver.gif.tmp", "/screensaver.gif");
             loadScreensaverGif(); // pick up the newly-uploaded GIF immediately, without a reboot

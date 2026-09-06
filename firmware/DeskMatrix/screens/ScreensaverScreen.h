@@ -8,6 +8,13 @@
 // should show a blank screen instead, per the design spec's error handling.
 bool loadScreensaverGif();
 
+// Closes the currently-playing GIF's file handle, if any. Must be called
+// before overwriting /screensaver.gif on flash — LittleFS refuses to
+// remove/rename a file that's still open, which otherwise makes a new
+// upload silently fail to replace the old one (confirmed on real
+// hardware: esp_littlefs logs "Has open FD" and the rename never happens).
+void unloadScreensaverGif();
+
 // Advances and draws the next animation frame if this frame's display
 // duration has elapsed; a cheap no-op check otherwise. Call this every main
 // loop() iteration (not gated by any fixed render tick) so playback runs at

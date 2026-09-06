@@ -77,9 +77,14 @@ void gifDraw(GIFDRAW* pDraw) {
 }
 }  // namespace
 
+void unloadScreensaverGif() {
+    if (g_loaded) g_gif.close(); // closes g_gifFile via gifClose()
+    g_loaded = false;
+}
+
 bool loadScreensaverGif() {
+    unloadScreensaverGif(); // release any previously-open file first
     if (!LittleFS.exists(kScreensaverPath)) {
-        g_loaded = false;
         return false;
     }
     g_gif.begin(BIG_ENDIAN_PIXELS);
