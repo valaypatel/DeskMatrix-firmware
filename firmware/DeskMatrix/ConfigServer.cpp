@@ -1,5 +1,6 @@
 // firmware/DeskMatrix/ConfigServer.cpp
 #include "web/ConfigServer.h"
+#include "config.h"
 #include "GifValidation.h"
 #include "screens/ScreensaverScreen.h"
 #include <Update.h>
@@ -128,6 +129,7 @@ void ConfigServer::begin() {
         [this]() { handlePostScreensaverUpload(); });
     server_.on("/api/ota", HTTP_POST,
         [this]() {
+            if (!checkAuth()) return;
             server_.send(200, "text/plain", Update.hasError() ? "FAIL" : "OK");
             delay(500);
             ESP.restart();
@@ -144,15 +146,24 @@ bool ConfigServer::configChanged() {
     return changed;
 }
 
+bool ConfigServer::checkAuth() {
+    if (server_.authenticate(CONFIG_AUTH_USER, CONFIG_AUTH_PASS)) return true;
+    server_.requestAuthentication();
+    return false;
+}
+
 void ConfigServer::handleGetRoot() {
+    if (!checkAuth()) return;
     server_.send(200, "text/html", kConfigPageHtml);
 }
 
 void ConfigServer::handleGetConfig() {
+    if (!checkAuth()) return;
     server_.send(200, "application/json", serializeConfig(appConfig_).c_str());
 }
 
 void ConfigServer::handlePutConfig() {
+    if (!checkAuth()) return;
     std::string body = server_.arg("plain").c_str();
     AppConfig parsed;
     std::string error;
@@ -167,6 +178,7 @@ void ConfigServer::handlePutConfig() {
 }
 
 void ConfigServer::handlePostWifi() {
+    if (!checkAuth()) return;
     std::string body = server_.arg("plain").c_str();
     JsonDocument doc;
     if (deserializeJson(doc, body) || !doc["ssid"].is<const char*>() || strlen(doc["ssid"] | "") == 0) {
@@ -189,6 +201,7 @@ void ConfigServer::handlePostAssetUpload() {
     // POST body — e.g. `curl --data-binary` — is dispatched through the raw
     // path instead, and calling upload() there dereferences a null
     // unique_ptr (crash, verified on real hardware). See ConfigServer.h.
+    if (!checkAuth()) return;
     HTTPRaw& raw = server_.raw();
     static File assetFile;
 
@@ -205,6 +218,7 @@ void ConfigServer::handlePostAssetUpload() {
 }
 
 void ConfigServer::handlePostAssetResponse() {
+    if (!checkAuth()) return;
     if (!server_.hasArg("id")) {
         server_.send(400, "text/plain", "missing ?id=");
         return;
@@ -227,6 +241,7 @@ size_t g_screensaverHeaderBufLen = 0;
 void ConfigServer::handlePostScreensaverUpload() {
     // See the comment in handlePostAssetUpload(): raw (non-multipart) POST
     // bodies go through server_.raw(), not server_.upload().
+    if (!checkAuth()) return;
     HTTPRaw& raw = server_.raw();
 
     if (raw.status == RAW_START) {
@@ -263,6 +278,7 @@ void ConfigServer::handlePostScreensaverUpload() {
 }
 
 void ConfigServer::handlePostScreensaverResponse() {
+    if (!checkAuth()) return;
     if (!g_screensaverHeaderValid) {
         server_.send(400, "application/json", "{\"error\":\"not a valid GIF file\"}");
         return;
@@ -273,6 +289,7 @@ void ConfigServer::handlePostScreensaverResponse() {
 void ConfigServer::handleOtaUpload() {
     // See the comment in handlePostAssetUpload(): raw (non-multipart) POST
     // bodies go through server_.raw(), not server_.upload().
+    if (!checkAuth()) return;
     HTTPRaw& raw = server_.raw();
     if (raw.status == RAW_START) {
         Update.begin(UPDATE_SIZE_UNKNOWN);

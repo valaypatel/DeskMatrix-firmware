@@ -8,6 +8,7 @@ to the device's config. After this, the device polls Spotify's API on its
 own; this script is never needed again unless you revoke access.
 """
 import argparse
+import base64
 import json
 import urllib.parse
 import urllib.request
@@ -55,8 +56,15 @@ def exchange_code_for_refresh_token(client_id: str, client_secret: str, code: st
     return body["refresh_token"]
 
 
-def push_to_device(device_ip: str, client_id: str, client_secret: str, refresh_token: str, poll_sec: int) -> None:
-    get_req = urllib.request.Request(f"http://{device_ip}/api/config")
+def _basic_auth_header(user: str, password: str) -> dict:
+    token = base64.b64encode(f"{user}:{password}".encode()).decode()
+    return {"Authorization": f"Basic {token}"}
+
+
+def push_to_device(device_ip: str, client_id: str, client_secret: str, refresh_token: str, poll_sec: int,
+                    device_user: str, device_pass: str) -> None:
+    auth = _basic_auth_header(device_user, device_pass)
+    get_req = urllib.request.Request(f"http://{device_ip}/api/config", headers=auth)
     with urllib.request.urlopen(get_req) as resp:
         config = json.loads(resp.read())
     config["spotify"] = {
@@ -69,7 +77,7 @@ def push_to_device(device_ip: str, client_id: str, client_secret: str, refresh_t
         f"http://{device_ip}/api/config",
         data=json.dumps(config).encode(),
         method="PUT",
-        headers={"Content-Type": "application/json"},
+        headers={**auth, "Content-Type": "application/json"},
     )
     with urllib.request.urlopen(put_req) as resp:
         print(f"pushed to device: {resp.status} {resp.read().decode()}")
@@ -82,6 +90,8 @@ def main() -> None:
     parser.add_argument("--redirect-uri", default="http://127.0.0.1:8888/callback")
     parser.add_argument("--poll-sec", type=int, default=5)
     parser.add_argument("--device-ip", help="If given, pushes the resulting config straight to the device")
+    parser.add_argument("--device-user", default="admin", help="Config panel Basic Auth username")
+    parser.add_argument("--device-pass", default="REDACTED_PASSWORD", help="Config panel Basic Auth password")
     args = parser.parse_args()
 
     print("Open this URL in any browser (your phone is fine) and log in:\n")
@@ -94,7 +104,8 @@ def main() -> None:
     print(f"\nRefresh token: {refresh_token}")
 
     if args.device_ip:
-        push_to_device(args.device_ip, args.client_id, args.client_secret, refresh_token, args.poll_sec)
+        push_to_device(args.device_ip, args.client_id, args.client_secret, refresh_token, args.poll_sec,
+                        args.device_user, args.device_pass)
 
 
 if __name__ == "__main__":

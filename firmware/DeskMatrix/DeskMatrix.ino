@@ -63,7 +63,7 @@ void initPanel() {
   dma_display->clearScreen();
 }
 
-void showIpForSeconds(const String& ip, int seconds) {
+void drawIpScreen(const String& ip) {
   dma_display->clearScreen();
   dma_display->setTextSize(1);
   dma_display->setTextWrap(false);
@@ -72,6 +72,10 @@ void showIpForSeconds(const String& ip, int seconds) {
   dma_display->print("IP:");
   dma_display->setCursor(2, 12);
   dma_display->print(ip);
+}
+
+void showIpForSeconds(const String& ip, int seconds) {
+  drawIpScreen(ip);
   delay((unsigned long)seconds * 1000UL);
   dma_display->clearScreen();
 }
@@ -168,12 +172,26 @@ void loop() {
     return;
   }
 
+  // Tracks how long we've been in DND, so a fresh tilt-left shows the IP
+  // first (a quick, no-reboot way to look up the device's address) before
+  // settling into the normal DND indicator.
+  static ScreenMode lastMode = ScreenMode::WIFI_SETUP;
+  static unsigned long dndEnteredMs = 0;
+  if (stateMachine.mode() == ScreenMode::DND && lastMode != ScreenMode::DND) {
+    dndEnteredMs = nowMs;
+  }
+  lastMode = stateMachine.mode();
+
   static unsigned long lastRenderMs = 0;
   if ((nowMs - lastRenderMs) >= 1000) {
     lastRenderMs = nowMs;
     switch (stateMachine.mode()) {
       case ScreenMode::DND:
-        drawDndScreen(dma_display);
+        if ((nowMs - dndEnteredMs) < (unsigned long)IP_DISPLAY_SECONDS * 1000UL) {
+          drawIpScreen(WiFi.localIP().toString());
+        } else {
+          drawDndScreen(dma_display);
+        }
         break;
       case ScreenMode::BRB:
         drawBrbScreen(dma_display);

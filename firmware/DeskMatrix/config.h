@@ -9,6 +9,11 @@
 #define WIFI_RESET_HOLD_MS 5000
 #define IP_DISPLAY_SECONDS 10
 
+// HTTP Basic Auth for the config web page and its API (GET /, /api/*).
+// No username was specified when this was requested, so "admin" was chosen.
+#define CONFIG_AUTH_USER "admin"
+#define CONFIG_AUTH_PASS "CHANGE_ME_IN_SECRETS_H"
+
 // MVP simplification: fixed UTC offset rather than full timezone database.
 // Change to your local offset in seconds (e.g. -18000 for US Eastern).
 #define TIMEZONE_OFFSET_SEC 0

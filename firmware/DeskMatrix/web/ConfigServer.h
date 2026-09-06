@@ -16,6 +16,12 @@ public:
     bool configChanged();
 
 private:
+    // HTTP Basic Auth gate for the config page and its API. Returns true if
+    // the request is authorized; otherwise sends a 401 challenge itself and
+    // returns false — every handler below must check this first and bail
+    // out (`if (!checkAuth()) return;`) without doing any work.
+    bool checkAuth();
+
     void handleGetRoot();
     void handleGetConfig();
     void handlePutConfig();
