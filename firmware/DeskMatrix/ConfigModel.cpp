@@ -10,38 +10,11 @@ bool parseConfig(const std::string& json, AppConfig& out, std::string& error) {
         return false;
     }
 
-    out.homeWidgets.clear();
-    for (JsonObject w : doc["home"]["widgets"].as<JsonArray>()) {
-        WidgetConfig wc;
-        wc.id = std::string(w["id"] | "");
-        wc.type = std::string(w["type"] | "");
-        wc.style = std::string(w["style"] | "");
-        wc.color = std::string(w["color"] | "");
-        wc.icon = std::string(w["icon"] | "");
-        wc.x = w["x"] | 0;
-        wc.y = w["y"] | 0;
-        wc.w = w["w"] | 0;
-        wc.h = w["h"] | 0;
-        wc.dataSource = std::string(w["dataSource"] | "");
-        wc.location = std::string(w["location"] | "");
-        if (wc.id.empty() || wc.type.empty()) {
-            error = "widget missing required id/type";
-            return false;
-        }
-        out.homeWidgets.push_back(wc);
-    }
-
-    out.dataSources.clear();
-    JsonObject sources = doc["dataSources"].as<JsonObject>();
-    for (JsonPair kv : sources) {
-        DataSourceConfig dsc;
-        dsc.id = std::string(kv.key().c_str());
-        JsonObject v = kv.value().as<JsonObject>();
-        dsc.type = std::string(v["type"] | "");
-        dsc.pollSec = v["pollSec"] | 300;
-        dsc.location = std::string(v["location"] | "");
-        out.dataSources.push_back(dsc);
-    }
+    JsonObject spotify = doc["spotify"].as<JsonObject>();
+    out.spotify.clientId = std::string(spotify["clientId"] | "");
+    out.spotify.clientSecret = std::string(spotify["clientSecret"] | "");
+    out.spotify.refreshToken = std::string(spotify["refreshToken"] | "");
+    out.spotify.pollSec = spotify["pollSec"] | 5;
 
     out.dndArt = std::string(doc["dnd"]["art"] | "dnd_default");
     out.brbArt = std::string(doc["brb"]["art"] | "brb_default");
@@ -51,29 +24,12 @@ bool parseConfig(const std::string& json, AppConfig& out, std::string& error) {
 
 std::string serializeConfig(const AppConfig& config) {
     JsonDocument doc;
-    JsonArray widgets = doc["home"]["widgets"].to<JsonArray>();
-    for (const auto& w : config.homeWidgets) {
-        JsonObject wo = widgets.add<JsonObject>();
-        wo["id"] = w.id;
-        wo["type"] = w.type;
-        wo["style"] = w.style;
-        wo["color"] = w.color;
-        wo["icon"] = w.icon;
-        wo["x"] = w.x;
-        wo["y"] = w.y;
-        wo["w"] = w.w;
-        wo["h"] = w.h;
-        if (!w.dataSource.empty()) wo["dataSource"] = w.dataSource;
-        if (!w.location.empty()) wo["location"] = w.location;
-    }
 
-    JsonObject sources = doc["dataSources"].to<JsonObject>();
-    for (const auto& ds : config.dataSources) {
-        JsonObject so = sources[ds.id].to<JsonObject>();
-        so["type"] = ds.type;
-        so["pollSec"] = ds.pollSec;
-        if (!ds.location.empty()) so["location"] = ds.location;
-    }
+    JsonObject spotify = doc["spotify"].to<JsonObject>();
+    spotify["clientId"] = config.spotify.clientId;
+    spotify["clientSecret"] = config.spotify.clientSecret;
+    spotify["refreshToken"] = config.spotify.refreshToken;
+    spotify["pollSec"] = config.spotify.pollSec;
 
     doc["dnd"]["art"] = config.dndArt;
     doc["brb"]["art"] = config.brbArt;
