@@ -158,13 +158,11 @@ void loop() {
   }
 
   if (stateMachine.mode() == ScreenMode::SPOTIFY_PLAYING) {
-    // Not gated by the fixed tick below: drawSpotifyScreen() only redraws
-    // (and flips) when the album art URL actually changes. With true
-    // double-buffering, flipping on every tick regardless — as the block
-    // below does for DND/BRB, which redraw unconditionally — would swap in
-    // whatever stale/blank content is sitting in the other buffer,
-    // producing a visible flash every second (confirmed on real hardware).
-    drawSpotifyScreen(dma_display, spotify.albumArtUrl);
+    // Not gated by the fixed tick below, same reasoning as SCREENSAVER:
+    // the spinning-record animation paces and flips itself every ~100ms
+    // while playing (see SpotifyScreen.cpp) — folding it into the shared
+    // 1s tick either flashes (flip without redraw) or spins too slowly.
+    drawSpotifyScreen(dma_display, spotify.albumArtUrl, spotify.isPlaying);
     return;
   }
 

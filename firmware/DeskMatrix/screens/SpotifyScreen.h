@@ -3,8 +3,11 @@
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 #include <string>
 
-// Draws the current Spotify album art full-screen. Only re-fetches/decodes
-// the JPEG when `albumArtUrl` differs from what's already on screen (see
-// albumArtChanged() in services/SpotifyService.h) — cheap no-op otherwise.
-// Call this once per render tick while in ScreenMode::SPOTIFY_PLAYING.
-void drawSpotifyScreen(MatrixPanel_I2S_DMA* display, const std::string& albumArtUrl);
+// Renders the current Spotify album art as a spinning vinyl record.
+// Re-fetches/decodes the JPEG only when `albumArtUrl` differs from what's
+// already loaded (see albumArtChanged() in services/SpotifyService.h) —
+// cheap no-op otherwise. Spins while `isPlaying` is true, freezes at its
+// current angle when false (matching a real record on pause). Self-paced
+// (like drawScreensaverFrame()): call every loop() iteration, not gated by
+// any fixed tick — it flips the display buffer itself whenever it redraws.
+void drawSpotifyScreen(MatrixPanel_I2S_DMA* display, const std::string& albumArtUrl, bool isPlaying);
