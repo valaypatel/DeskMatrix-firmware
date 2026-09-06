@@ -6,11 +6,19 @@
 // to be a small signature fix, not a redesign.
 #include "screens/SpotifyScreen.h"
 #include "services/SpotifyService.h"
+#include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
-#include <SpotifyArduinoCert.h>
 #include <JPEGDEC.h>
 #include <vector>
+
+// SpotifyArduinoCert.h defines spotify_server_cert/spotify_image_server_cert
+// as plain (non-extern) globals with no include guard against multiple
+// translation units, so it can only be #included once across the sketch —
+// SpotifyService.cpp already does that. Declare the one symbol needed here
+// as extern instead of re-including the header, to avoid a duplicate-symbol
+// link error.
+extern const char* spotify_image_server_cert;
 
 namespace {
 std::string g_lastDrawnUrl;

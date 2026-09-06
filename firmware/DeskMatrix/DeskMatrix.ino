@@ -5,6 +5,8 @@
 #include "ConfigModel.h"
 #include "SettingsStore.h"
 #include "screens/ScreensaverScreen.h"
+#include "services/SpotifyService.h"
+#include "screens/SpotifyScreen.h"
 #include "ScreenStateMachine.h"
 #include "TiltDebouncer.h"
 #include "services/ImuHardware.h"
@@ -21,6 +23,7 @@ ConfigServer configServer(appConfig, settingsStore);
 ScreenStateMachine stateMachine;
 TiltDebouncer tiltDebouncer(25.0f, 5);
 bool imuAvailable = false;
+SpotifyService* spotifyService = nullptr;
 
 AppConfig defaultConfig() {
   AppConfig cfg;
@@ -100,6 +103,8 @@ void setup() {
   loadOrInitConfig();
 
   loadScreensaverGif(); // ok if this returns false: screensaver just shows blank until one is uploaded
+  spotifyService = new SpotifyService(appConfig.spotify.clientId, appConfig.spotify.clientSecret,
+                                       appConfig.spotify.refreshToken, appConfig.spotify.pollSec);
 
   imuAvailable = imuBegin();
   if (!imuAvailable) Serial.println("IMU not found — DND/BRB disabled this boot.");
@@ -115,6 +120,21 @@ void setup() {
 
 void loop() {
   configServer.loop();
+
+  if (configServer.configChanged()) {
+    Serial.println("[config] change detected");
+    spotifyService->configure(appConfig.spotify.clientId, appConfig.spotify.clientSecret,
+                               appConfig.spotify.refreshToken, appConfig.spotify.pollSec);
+  }
+
+  spotifyService->loop(); // polls continuously regardless of current mode, so a mode switch happens promptly
+
+  SpotifyStatus spotify = spotifyService->latest();
+  if (spotify.isPlaying) {
+    stateMachine.spotifyStarted();
+  } else {
+    stateMachine.spotifyStopped();
+  }
 
   unsigned long nowMs = millis();
 
@@ -142,7 +162,7 @@ void loop() {
     lastRenderMs = nowMs;
     switch (stateMachine.mode()) {
       case ScreenMode::SPOTIFY_PLAYING:
-        // Wired in Task 9b.
+        drawSpotifyScreen(dma_display, spotify.albumArtUrl);
         break;
       case ScreenMode::DND:
         drawDndScreen(dma_display);
