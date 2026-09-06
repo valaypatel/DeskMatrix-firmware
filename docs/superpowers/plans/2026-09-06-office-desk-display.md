@@ -71,7 +71,7 @@ git rm firmware/DeskMatrix/screens/ClockWidget.h \
 - [ ] **Step 2: Run the native test suite to confirm nothing else references the removed files yet**
 
 Run: `bash tests/native/run_tests.sh` (from repo root)
-Expected: FAIL — `test_config_model.cpp` still references the old `home`/`dataSources` schema (fixed in Task 2), and `DeskMatrix.ino` still `#include`s the deleted headers (fixed in Task 9). This step is just confirming the deletion itself didn't silently succeed against stale caches; the failures you see here should only be about the old schema/includes, not missing-file errors for anything still in the tree.
+Expected: FAIL — `test_config_model.cpp` still references the old `home`/`dataSources` schema (fixed in Task 2), and `DeskMatrix.ino` still `#include`s the deleted headers (fixed in Task 9a). This step is just confirming the deletion itself didn't silently succeed against stale caches; the failures you see here should only be about the old schema/includes, not missing-file errors for anything still in the tree.
 
 - [ ] **Step 3: Commit**
 
@@ -90,7 +90,7 @@ git commit -m "remove clock/weather Home dashboard (superseded by screensaver + 
 
 **Interfaces:**
 - Produces: `struct SpotifyConfig { std::string clientId, clientSecret, refreshToken; int pollSec = 5; }`; `struct AppConfig { SpotifyConfig spotify; std::string dndArt = "dnd_default"; std::string brbArt = "brb_default"; }`; `bool parseConfig(const std::string&, AppConfig&, std::string&)`; `std::string serializeConfig(const AppConfig&)` — same names/signatures as before, new shape
-- Consumed by: Task 9 (`DeskMatrix.ino`'s `defaultConfig()`/`loadOrInitConfig()`), Task 6 (`SpotifyService` is constructed from `AppConfig::spotify`)
+- Consumed by: Task 9a (`DeskMatrix.ino`'s `defaultConfig()`/`loadOrInitConfig()`), Task 6 (`SpotifyService` is constructed from `AppConfig::spotify`)
 
 - [ ] **Step 1: Rewrite the test for the new schema**
 
@@ -246,7 +246,7 @@ git commit -m "replace home/dataSources config schema with spotify block"
 
 **Interfaces:**
 - Produces: `enum class ScreenMode { WIFI_SETUP, SCREENSAVER, SPOTIFY_PLAYING, INTERRUPT_TAKEOVER, DND, BRB }`; `ScreenStateMachine::spotifyStarted()`, `ScreenStateMachine::spotifyStopped()` (new); `mode()`, `wifiConfigured()`, `enterTakeover()`, `exitTakeover()`, `tiltLeft()`, `tiltRight()`, `tiltCenter()` (same names, `HOME` renamed to `SCREENSAVER` throughout)
-- Consumed by: Task 9 (`DeskMatrix.ino`'s `loop()` calls `spotifyStarted()`/`spotifyStopped()` based on `SpotifyService::latest().isPlaying`, and switches rendering on `stateMachine.mode()`)
+- Consumed by: Task 9a (`DeskMatrix.ino`'s `loop()` switches rendering on `stateMachine.mode()`), Task 9b (`spotifyStarted()`/`spotifyStopped()` called based on `SpotifyService::latest().isPlaying`)
 
 - [ ] **Step 1: Update the test for the renamed mode and new transitions**
 
@@ -471,7 +471,7 @@ git commit -m "add GIF header validation helper"
 - Produces: `POST /api/screensaver` HTTP route, writes to `/screensaver.gif` on LittleFS
 - Consumed by: Task 7 (`ScreensaverScreen::loadScreensaverGif()` reads `/screensaver.gif`)
 
-No native test here — this handler is exercised through the real `WebServer`/`LittleFS` stack, which only runs on-device (same as the existing `handlePostAssetUpload`, also untested natively). Verification is manual, via `curl`, once this is flashed as part of Task 9's integration pass.
+No native test here — this handler is exercised through the real `WebServer`/`LittleFS` stack, which only runs on-device (same as the existing `handlePostAssetUpload`, also untested natively). Verification is manual, via `curl`, once this is flashed as part of Task 9a's integration pass.
 
 - [ ] **Step 1: Add the route declaration to `ConfigServer.h`**
 
@@ -659,7 +659,7 @@ git commit -m "add POST /api/screensaver upload endpoint"
 **Interfaces:**
 - Consumes: `SpotifyConfig` from Task 2
 - Produces: `struct SpotifyStatus { bool isPlaying; std::string albumArtUrl; }`; `class SpotifyService { SpotifyService(clientId, clientSecret, refreshToken, pollSec); void loop(); SpotifyStatus latest() const; void configure(clientId, clientSecret, refreshToken, pollSec); }`; `bool albumArtChanged(const std::string& previousUrl, const std::string& newUrl)`
-- Consumed by: Task 8 (`SpotifyScreen` uses `albumArtChanged()`), Task 9 (`DeskMatrix.ino` constructs/polls `SpotifyService` and drives `ScreenStateMachine::spotifyStarted()`/`spotifyStopped()` from `latest().isPlaying`)
+- Consumed by: Task 8 (`SpotifyScreen` uses `albumArtChanged()`), Task 9b (`DeskMatrix.ino` constructs/polls `SpotifyService` and drives `ScreenStateMachine::spotifyStarted()`/`spotifyStopped()` from `latest().isPlaying`)
 
 Only `albumArtChanged()` is pure logic — the rest of this class wraps `SpotifyArduino`'s network calls, which need real Wi-Fi and a real Spotify account to exercise (same category as `WeatherService`, not natively testable). TDD the pure helper first, then write the class around it.
 
@@ -860,7 +860,7 @@ void SpotifyService::poll() {
 }
 ```
 
-This step isn't re-verified by the native suite (it depends on Arduino/`SpotifyArduino` symbols that don't exist on the host) — it's verified in Task 9's on-device integration pass instead.
+This step isn't re-verified by the native suite (it depends on Arduino/`SpotifyArduino` symbols that don't exist on the host) — it's verified in Task 9b's on-device integration pass instead.
 
 - [ ] **Step 7: Commit**
 
@@ -879,9 +879,9 @@ git commit -m "add SpotifyService: polling, credential config, album-art change 
 
 **Interfaces:**
 - Produces: `bool loadScreensaverGif()`; `void drawScreensaverFrame(MatrixPanel_I2S_DMA* display)`
-- Consumed by: Task 9 (`DeskMatrix.ino` calls `loadScreensaverGif()` at boot and after a screensaver upload, `drawScreensaverFrame()` every loop iteration while `mode() == SCREENSAVER`)
+- Consumed by: Task 9a (`DeskMatrix.ino` calls `loadScreensaverGif()` at boot and after a screensaver upload, `drawScreensaverFrame()` every loop iteration while `mode() == SCREENSAVER`)
 
-Not natively testable — GIF decoding and panel drawing both require the real `AnimatedGIF` library, `LittleFS`, and the HUB75 display. Verified on-device in Task 9.
+Not natively testable — GIF decoding and panel drawing both require the real `AnimatedGIF` library, `LittleFS`, and the HUB75 display. Verified on-device in Task 9a.
 
 - [ ] **Step 1: Write `ScreensaverScreen.h`**
 
@@ -1010,9 +1010,9 @@ git commit -m "add ScreensaverScreen: GIF playback from LittleFS"
 **Interfaces:**
 - Consumes: `albumArtChanged()` from Task 6
 - Produces: `void drawSpotifyScreen(MatrixPanel_I2S_DMA* display, const std::string& albumArtUrl)`
-- Consumed by: Task 9 (`DeskMatrix.ino` calls this every render tick while `mode() == SPOTIFY_PLAYING`, passing `spotifyService->latest().albumArtUrl`)
+- Consumed by: Task 9b (`DeskMatrix.ino` calls this every render tick while `mode() == SPOTIFY_PLAYING`, passing `spotifyService->latest().albumArtUrl`)
 
-Not natively testable — JPEG fetch/decode requires real Wi-Fi, `WiFiClientSecure`, and `JPEGDEC`. Verified on-device in Task 9. The dedup check itself (skip work when the URL hasn't changed) reuses the already-tested `albumArtChanged()`, so the only untested part is the actual network fetch and decode.
+Not natively testable — JPEG fetch/decode requires real Wi-Fi, `WiFiClientSecure`, and `JPEGDEC`. Verified on-device in Task 9b. The dedup check itself (skip work when the URL hasn't changed) reuses the already-tested `albumArtChanged()`, so the only untested part is the actual network fetch and decode.
 
 - [ ] **Step 1: Write `SpotifyScreen.h`**
 
@@ -1104,15 +1104,16 @@ git commit -m "add SpotifyScreen: fetch and decode album art JPEG to the panel"
 
 ---
 
-## Task 9: Wire it all into `DeskMatrix.ino`
+## Task 9a: Wire the screensaver into `DeskMatrix.ino`
 
 **Files:**
 - Modify: `firmware/DeskMatrix/DeskMatrix.ino`
 
 **Interfaces:**
-- Consumes: everything from Tasks 2, 3, 6, 7, 8
+- Consumes: `AppConfig`/`SpotifyConfig` from Task 2 (schema only — Spotify isn't wired to anything yet), `ScreenMode`/`ScreenStateMachine` from Task 3, `loadScreensaverGif()`/`drawScreensaverFrame()` from Task 7
+- Produces: a fully working device with screensaver + DND/BRB only (Spotify added in Task 9b)
 
-This is the on-device integration task — build, flash, and manually verify against the real panel and a real Spotify account, per the design spec's testing approach. No native test applies to this file (it's nothing but wiring of already-tested pieces plus hardware calls).
+First on-device checkpoint: build, flash, and confirm the screensaver plays on your real panel before Spotify is added on top. No native test applies to this file (it's wiring of already-tested pieces plus hardware calls).
 
 - [ ] **Step 1: Rewrite `DeskMatrix.ino`**
 
@@ -1123,9 +1124,7 @@ This is the on-device integration task — build, flash, and manually verify aga
 #include "config.h"
 #include "ConfigModel.h"
 #include "SettingsStore.h"
-#include "services/SpotifyService.h"
 #include "screens/ScreensaverScreen.h"
-#include "screens/SpotifyScreen.h"
 #include "ScreenStateMachine.h"
 #include "TiltDebouncer.h"
 #include "services/ImuHardware.h"
@@ -1139,14 +1138,13 @@ WiFiManager wm;
 SettingsStore settingsStore;
 AppConfig appConfig;
 ConfigServer configServer(appConfig, settingsStore);
-SpotifyService* spotifyService = nullptr;
 ScreenStateMachine stateMachine;
 TiltDebouncer tiltDebouncer(25.0f, 5);
 bool imuAvailable = false;
 
 AppConfig defaultConfig() {
   AppConfig cfg;
-  cfg.spotify = SpotifyConfig{}; // empty credentials: Spotify polling stays skipped until configured
+  cfg.spotify = SpotifyConfig{}; // empty credentials: wired up in Task 9b
   cfg.dndArt = "dnd_default";
   cfg.brbArt = "brb_default";
   return cfg;
@@ -1221,8 +1219,6 @@ void setup() {
   settingsStore.begin();
   loadOrInitConfig();
 
-  spotifyService = new SpotifyService(appConfig.spotify.clientId, appConfig.spotify.clientSecret,
-                                       appConfig.spotify.refreshToken, appConfig.spotify.pollSec);
   loadScreensaverGif(); // ok if this returns false: screensaver just shows blank until one is uploaded
 
   imuAvailable = imuBegin();
@@ -1239,21 +1235,6 @@ void setup() {
 
 void loop() {
   configServer.loop();
-
-  if (configServer.configChanged()) {
-    Serial.println("[config] change detected");
-    spotifyService->configure(appConfig.spotify.clientId, appConfig.spotify.clientSecret,
-                               appConfig.spotify.refreshToken, appConfig.spotify.pollSec);
-  }
-
-  spotifyService->loop(); // polls continuously regardless of current mode, so a mode switch happens promptly
-
-  SpotifyStatus spotify = spotifyService->latest();
-  if (spotify.isPlaying) {
-    stateMachine.spotifyStarted();
-  } else {
-    stateMachine.spotifyStopped();
-  }
 
   unsigned long nowMs = millis();
 
@@ -1281,7 +1262,7 @@ void loop() {
     lastRenderMs = nowMs;
     switch (stateMachine.mode()) {
       case ScreenMode::SPOTIFY_PLAYING:
-        drawSpotifyScreen(dma_display, spotify.albumArtUrl);
+        // Wired in Task 9b.
         break;
       case ScreenMode::DND:
         drawDndScreen(dma_display);
@@ -1300,9 +1281,132 @@ void loop() {
 }
 ```
 
-- [ ] **Step 2: Install the new Arduino libraries**
+- [ ] **Step 2: Install the AnimatedGIF library**
 
-Run: `arduino-cli lib install "JPEGDEC" "AnimatedGIF"`
+Run: `arduino-cli lib install "AnimatedGIF"`
+Expected: appears in `arduino-cli lib list`.
+
+- [ ] **Step 3: Compile**
+
+Run (from `firmware/DeskMatrix/`):
+```bash
+arduino-cli compile --fqbn "esp32:esp32:esp32s3:FlashSize=32M,PSRAM=opi,PartitionScheme=app5M_little24M_32MB,CDCOnBoot=cdc" .
+```
+Expected: compiles cleanly. If `AnimatedGIF`'s callback signatures differ from what Task 7 wrote (flagged in that file's top-of-file comment), fix the signature to match the installed version's header — expected to be a small, mechanical fix.
+
+- [ ] **Step 4: Flash and verify the screensaver on the real panel**
+
+Run: `arduino-cli upload -p /dev/cu.usbmodem101 --fqbn "esp32:esp32:esp32s3:FlashSize=32M,PSRAM=opi,PartitionScheme=app5M_little24M_32MB,CDCOnBoot=cdc" .`
+
+Upload a small test GIF once the device is on the network (replace `<device-ip>`):
+```bash
+curl -X POST --data-binary @test.gif "http://<device-ip>/api/screensaver"
+```
+Expected: `{"status":"ok"}`, and the panel plays the GIF in a loop at a reasonable frame rate. Confirm a non-GIF file is rejected:
+```bash
+curl -X POST --data-binary @not-a-gif.txt "http://<device-ip>/api/screensaver"
+```
+Expected: `400` with an error body, and the previously-uploaded GIF keeps playing (not replaced). Also confirm DND/BRB still work if `ENABLE_IMU_TILT` is set to `1` and the IMU has been calibrated — otherwise this is a no-op, unchanged from before this plan.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add firmware/DeskMatrix/DeskMatrix.ino
+git commit -m "wire screensaver into DeskMatrix.ino, remove Home dashboard init"
+```
+
+---
+
+## Task 9b: Wire Spotify into `DeskMatrix.ino`
+
+**Files:**
+- Modify: `firmware/DeskMatrix/DeskMatrix.ino`
+
+**Interfaces:**
+- Consumes: `SpotifyService`/`SpotifyStatus` from Task 6, `drawSpotifyScreen()` from Task 8, `ScreenStateMachine::spotifyStarted()`/`spotifyStopped()` from Task 3
+
+Second on-device checkpoint: adds Spotify on top of the already-verified screensaver from Task 9a, so if something's off here it's isolated to the Spotify path.
+
+- [ ] **Step 1: Add the Spotify includes and instance**
+
+In `firmware/DeskMatrix/DeskMatrix.ino`, add two includes after `#include "screens/ScreensaverScreen.h"`:
+
+```cpp
+#include "services/SpotifyService.h"
+#include "screens/SpotifyScreen.h"
+```
+
+Add the instance pointer next to the other globals:
+
+```cpp
+SpotifyService* spotifyService = nullptr;
+```
+
+- [ ] **Step 2: Construct it in `setup()`**
+
+Add this line right after `loadScreensaverGif();`:
+
+```cpp
+  spotifyService = new SpotifyService(appConfig.spotify.clientId, appConfig.spotify.clientSecret,
+                                       appConfig.spotify.refreshToken, appConfig.spotify.pollSec);
+```
+
+- [ ] **Step 3: Poll it and drive the state machine in `loop()`**
+
+Replace:
+
+```cpp
+void loop() {
+  configServer.loop();
+
+  unsigned long nowMs = millis();
+```
+
+with:
+
+```cpp
+void loop() {
+  configServer.loop();
+
+  if (configServer.configChanged()) {
+    Serial.println("[config] change detected");
+    spotifyService->configure(appConfig.spotify.clientId, appConfig.spotify.clientSecret,
+                               appConfig.spotify.refreshToken, appConfig.spotify.pollSec);
+  }
+
+  spotifyService->loop(); // polls continuously regardless of current mode, so a mode switch happens promptly
+
+  SpotifyStatus spotify = spotifyService->latest();
+  if (spotify.isPlaying) {
+    stateMachine.spotifyStarted();
+  } else {
+    stateMachine.spotifyStopped();
+  }
+
+  unsigned long nowMs = millis();
+```
+
+- [ ] **Step 4: Fill in the `SPOTIFY_PLAYING` case**
+
+Replace:
+
+```cpp
+      case ScreenMode::SPOTIFY_PLAYING:
+        // Wired in Task 9b.
+        break;
+```
+
+with:
+
+```cpp
+      case ScreenMode::SPOTIFY_PLAYING:
+        drawSpotifyScreen(dma_display, spotify.albumArtUrl);
+        break;
+```
+
+- [ ] **Step 5: Install the remaining Arduino libraries**
+
+Run: `arduino-cli lib install "JPEGDEC"`
 
 `SpotifyArduino` isn't in the Library Manager index — install it from source:
 
@@ -1312,39 +1416,27 @@ curl -L -o spotify-api-arduino.zip https://github.com/witnessmenow/spotify-api-a
 arduino-cli lib install --zip-path spotify-api-arduino.zip
 ```
 
-Expected: all three libraries appear in `arduino-cli lib list`.
+Expected: both appear in `arduino-cli lib list`.
 
-- [ ] **Step 3: Compile**
+- [ ] **Step 6: Compile**
 
 Run (from `firmware/DeskMatrix/`):
 ```bash
 arduino-cli compile --fqbn "esp32:esp32:esp32s3:FlashSize=32M,PSRAM=opi,PartitionScheme=app5M_little24M_32MB,CDCOnBoot=cdc" .
 ```
-Expected: compiles cleanly. If `AnimatedGIF`'s or `JPEGDEC`'s callback signatures differ from what Tasks 7/8 wrote (flagged in those files' top-of-file comments), fix the signature to match the installed version's header — this is expected to be a small, mechanical fix.
+Expected: compiles cleanly. If `JPEGDEC`'s callback signature differs from what Task 8 wrote (flagged in that file's top-of-file comment), fix the signature to match the installed version's header — expected to be a small, mechanical fix.
 
-- [ ] **Step 4: Flash and verify the screensaver**
+- [ ] **Step 7: Flash and verify Spotify on the real panel (needs Task 10's bootstrap script run first, to push real credentials)**
 
 Run: `arduino-cli upload -p /dev/cu.usbmodem101 --fqbn "esp32:esp32:esp32s3:FlashSize=32M,PSRAM=opi,PartitionScheme=app5M_little24M_32MB,CDCOnBoot=cdc" .`
 
-Upload a small test GIF once the device is on the network (replace `<device-ip>`):
-```bash
-curl -X POST --data-binary @test.gif "http://<device-ip>/api/screensaver"
-```
-Expected: `{"status":"ok"}`, and the panel plays the GIF in a loop. Confirm a non-GIF file is rejected:
-```bash
-curl -X POST --data-binary @not-a-gif.txt "http://<device-ip>/api/screensaver"
-```
-Expected: `400` with an error body, and the previously-uploaded GIF keeps playing (not replaced).
-
-- [ ] **Step 5: Verify Spotify (after Task 10's bootstrap script has pushed real credentials)**
-
 Play a song on the Spotify account the refresh token belongs to. Expected: within `pollSec` (default 5s), the panel switches from the screensaver to full-screen album art. Pause the song. Expected: within `pollSec`, the panel reverts to the screensaver.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add firmware/DeskMatrix/DeskMatrix.ino
-git commit -m "wire screensaver + Spotify into DeskMatrix.ino, remove Home dashboard init"
+git commit -m "wire Spotify now-playing into DeskMatrix.ino"
 ```
 
 ---
@@ -1357,7 +1449,7 @@ git commit -m "wire screensaver + Spotify into DeskMatrix.ino, remove Home dashb
 
 **Interfaces:**
 - Produces: `build_authorize_url(client_id, redirect_uri) -> str`; `extract_code_from_redirect(pasted_url) -> str`; `exchange_code_for_refresh_token(client_id, client_secret, code, redirect_uri) -> str`; `push_to_device(device_ip, client_id, client_secret, refresh_token, poll_sec) -> None`
-- Consumed by: the user, once, to obtain the `spotify.refreshToken` value that Task 9's `SpotifyService` needs. Never runs on the device.
+- Consumed by: the user, once, to obtain the `spotify.refreshToken` value that Task 9b's `SpotifyService` needs. Never runs on the device.
 
 This is the "small one-off local script" the design spec describes: the login happens once, in any browser (a phone is fine, per the design's chosen approach — copying the failed-redirect URL out of the browser's address bar works even though `127.0.0.1` isn't reachable from a phone). Only the pure URL-building/parsing logic is unit tested; the actual token exchange and device push are network calls verified manually.
 
@@ -1518,12 +1610,13 @@ Create a Spotify app at https://developer.spotify.com/dashboard (any name), add 
 python3 tools/spotify_bootstrap.py --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET --device-ip <device-ip>
 ```
 
-Expected: prints the authorize URL, accepts the pasted redirect URL, prints a refresh token, and (since `--device-ip` was given) pushes it straight to the device's config — completing Task 9 Step 5's prerequisite.
+Expected: prints the authorize URL, accepts the pasted redirect URL, prints a refresh token, and (since `--device-ip` was given) pushes it straight to the device's config — completing Task 9b Step 7's prerequisite.
 
 ---
 
 ## Self-Review Notes
 
-- **Spec coverage:** GIF screensaver (Tasks 4/5/7/9), Spotify now-playing (Tasks 2/6/8/9), Home dashboard removal (Task 1), config schema (Task 2), error handling for malformed config/GIF/API failures (Tasks 2, 5, 6, 8), one-time OAuth bootstrap (Task 10) — all spec sections have a task.
-- **Type consistency checked:** `SpotifyStatus`/`SpotifyConfig` field names (`isPlaying`, `albumArtUrl`, `clientId`, `clientSecret`, `refreshToken`, `pollSec`) match across Tasks 2, 6, 8, 9. `ScreenMode::SCREENSAVER`/`SPOTIFY_PLAYING` match across Tasks 3 and 9. `loadScreensaverGif()`/`drawScreensaverFrame()` and `drawSpotifyScreen()` signatures match between their Task 7/8 headers and Task 9's call sites.
+- **Spec coverage:** GIF screensaver (Tasks 4/5/7/9a), Spotify now-playing (Tasks 2/6/8/9b), Home dashboard removal (Task 1), config schema (Task 2), error handling for malformed config/GIF/API failures (Tasks 2, 5, 6, 8), one-time OAuth bootstrap (Task 10) — all spec sections have a task.
+- **Type consistency checked:** `SpotifyStatus`/`SpotifyConfig` field names (`isPlaying`, `albumArtUrl`, `clientId`, `clientSecret`, `refreshToken`, `pollSec`) match across Tasks 2, 6, 8, 9b. `ScreenMode::SCREENSAVER`/`SPOTIFY_PLAYING` match across Tasks 3, 9a, and 9b. `loadScreensaverGif()`/`drawScreensaverFrame()` signatures match between Task 7's header and Task 9a's call sites; `drawSpotifyScreen()` matches between Task 8's header and Task 9b's call site.
 - **Deferred to real hardware, by design (matches this project's existing precedent for `WeatherService`/`ImuHardware`):** exact `AnimatedGIF`/`JPEGDEC` callback signatures (flagged in-file), IMU tilt axis calibration (pre-existing, `ENABLE_IMU_TILT` stays `0` until calibrated — unchanged by this plan), real-account Spotify polling/art rendering.
+- **Execution order note:** Task 10 (the OAuth bootstrap script) is listed last but its "push to device" step is a prerequisite for Task 9b Step 7's live Spotify verification — run Task 10 before or during Task 9b, not strictly after. Tasks 1–8 have no such ordering constraint among themselves beyond the dependencies already listed in each task's "Consumes" line.
