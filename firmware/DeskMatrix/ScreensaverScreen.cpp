@@ -59,10 +59,10 @@ int32_t gifSeek(GIFFILE* pFile, int32_t position) {
 
 // Called once per decoded scanline. pDraw->pPixels is always an 8-bit
 // palette-index array in this library (confirmed against AnimatedGIF.h and
-// its own ESP32 HUB75 example) — BIG_ENDIAN_PIXELS only controls the byte
-// order of the RGB565 entries in pDraw->pPalette, it does not switch
-// pPixels itself to raw RGB565. Every pixel must be looked up through the
-// palette.
+// its own ESP32 HUB75 example) — the LITTLE_ENDIAN_PIXELS/BIG_ENDIAN_PIXELS
+// argument to gif.begin() only controls the byte order of the RGB565
+// entries in pDraw->pPalette, it does not switch pPixels itself to raw
+// RGB565. Every pixel must be looked up through the palette.
 void gifDraw(GIFDRAW* pDraw) {
     int y = pDraw->iY + pDraw->y;
     if (y < 0 || y >= kSize) return;
@@ -96,6 +96,26 @@ void gifDraw(GIFDRAW* pDraw) {
 }
 }  // namespace
 
+namespace {
+// Opens kScreensaverPath into g_gif without touching g_canvas — used both
+// by loadScreensaverGif() (after it clears the canvas) and by the
+// loop-restart path below, which must NOT clear: the GIF's own frame 1 is
+// its base/keyframe and covers the canvas on its own, so clearing there
+// too just inserts one all-black flashed frame at every loop boundary
+// (confirmed on real hardware: a flicker each time the GIF looped).
+bool openGifFile() {
+    // Matches the display library's own bundled reference example
+    // (AnimatedGIFPanel_LittleFS.ino), which uses LITTLE_ENDIAN_PIXELS —
+    // BIG_ENDIAN_PIXELS (the previous, never-actually-verified choice)
+    // byte-swaps the palette's RGB565 entries, tinting colors wrong
+    // (confirmed on real hardware: unexpected pink where none exists).
+    g_gif.begin(LITTLE_ENDIAN_PIXELS);
+    g_loaded = g_gif.open(kScreensaverPath, gifOpen, gifClose, gifRead, gifSeek, gifDraw);
+    g_nextFrameDueMs = 0;
+    return g_loaded;
+}
+}  // namespace
+
 void unloadScreensaverGif() {
     if (g_loaded) g_gif.close(); // closes g_gifFile via gifClose()
     g_loaded = false;
@@ -111,10 +131,7 @@ bool loadScreensaverGif() {
     if (!LittleFS.exists(kScreensaverPath)) {
         return false;
     }
-    g_gif.begin(BIG_ENDIAN_PIXELS);
-    g_loaded = g_gif.open(kScreensaverPath, gifOpen, gifClose, gifRead, gifSeek, gifDraw);
-    g_nextFrameDueMs = 0;
-    return g_loaded;
+    return openGifFile();
 }
 
 void drawScreensaverFrame(MatrixPanel_I2S_DMA* display) {
@@ -129,9 +146,10 @@ void drawScreensaverFrame(MatrixPanel_I2S_DMA* display) {
     if (result == 0) {
         // End of the GIF's loop. AnimatedGIF rewinds automatically for most
         // files per their own loop-count metadata, but re-open defensively
-        // in case this one doesn't.
+        // in case this one doesn't — without clearing the canvas (see
+        // openGifFile()'s comment).
         g_gif.close();
-        loadScreensaverGif();
+        openGifFile();
     }
 
     // Blit the whole canvas every frame (not just the pixels this frame's
