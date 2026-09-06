@@ -53,17 +53,23 @@ void ConfigServer::handlePutConfig() {
 }
 
 void ConfigServer::handlePostAssetUpload() {
-    HTTPUpload& upload = server_.upload();
+    // Uses server_.raw() (HTTPRaw), not server_.upload() (HTTPUpload): the
+    // installed WebServer version (esp32 core 3.3.11) only populates
+    // _currentUpload for multipart/form-data bodies. A plain (non-multipart)
+    // POST body — e.g. `curl --data-binary` — is dispatched through the raw
+    // path instead, and calling upload() there dereferences a null
+    // unique_ptr (crash, verified on real hardware). See ConfigServer.h.
+    HTTPRaw& raw = server_.raw();
     static File assetFile;
 
-    if (upload.status == UPLOAD_FILE_START) {
+    if (raw.status == RAW_START) {
         if (!server_.hasArg("id")) return;
         if (!LittleFS.exists("/assets")) LittleFS.mkdir("/assets");
         std::string path = "/assets/" + std::string(server_.arg("id").c_str()) + ".bin";
         assetFile = LittleFS.open(path.c_str(), "w");
-    } else if (upload.status == UPLOAD_FILE_WRITE) {
-        if (assetFile) assetFile.write(upload.buf, upload.currentSize);
-    } else if (upload.status == UPLOAD_FILE_END) {
+    } else if (raw.status == RAW_WRITE) {
+        if (assetFile) assetFile.write(raw.buf, raw.currentSize);
+    } else if (raw.status == RAW_END) {
         if (assetFile) assetFile.close();
     }
 }
@@ -83,19 +89,21 @@ bool g_screensaverHeaderValid = false;
 }  // namespace
 
 void ConfigServer::handlePostScreensaverUpload() {
-    HTTPUpload& upload = server_.upload();
+    // See the comment in handlePostAssetUpload(): raw (non-multipart) POST
+    // bodies go through server_.raw(), not server_.upload().
+    HTTPRaw& raw = server_.raw();
 
-    if (upload.status == UPLOAD_FILE_START) {
+    if (raw.status == RAW_START) {
         g_screensaverHeaderChecked = false;
         g_screensaverHeaderValid = false;
         g_screensaverTmpFile = LittleFS.open("/screensaver.gif.tmp", "w");
-    } else if (upload.status == UPLOAD_FILE_WRITE) {
+    } else if (raw.status == RAW_WRITE) {
         if (!g_screensaverHeaderChecked) {
-            g_screensaverHeaderValid = isValidGifHeader(upload.buf, upload.currentSize);
+            g_screensaverHeaderValid = isValidGifHeader(raw.buf, raw.currentSize);
             g_screensaverHeaderChecked = true;
         }
-        if (g_screensaverTmpFile) g_screensaverTmpFile.write(upload.buf, upload.currentSize);
-    } else if (upload.status == UPLOAD_FILE_END) {
+        if (g_screensaverTmpFile) g_screensaverTmpFile.write(raw.buf, raw.currentSize);
+    } else if (raw.status == RAW_END) {
         if (g_screensaverTmpFile) g_screensaverTmpFile.close();
         if (g_screensaverHeaderValid) {
             if (LittleFS.exists("/screensaver.gif")) LittleFS.remove("/screensaver.gif");
@@ -115,12 +123,14 @@ void ConfigServer::handlePostScreensaverResponse() {
 }
 
 void ConfigServer::handleOtaUpload() {
-    HTTPUpload& upload = server_.upload();
-    if (upload.status == UPLOAD_FILE_START) {
+    // See the comment in handlePostAssetUpload(): raw (non-multipart) POST
+    // bodies go through server_.raw(), not server_.upload().
+    HTTPRaw& raw = server_.raw();
+    if (raw.status == RAW_START) {
         Update.begin(UPDATE_SIZE_UNKNOWN);
-    } else if (upload.status == UPLOAD_FILE_WRITE) {
-        Update.write(upload.buf, upload.currentSize);
-    } else if (upload.status == UPLOAD_FILE_END) {
+    } else if (raw.status == RAW_WRITE) {
+        Update.write(raw.buf, raw.currentSize);
+    } else if (raw.status == RAW_END) {
         Update.end(true);
     }
 }
