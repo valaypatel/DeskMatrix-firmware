@@ -72,13 +72,8 @@ bool imuBegin() {
         return false;
     }
 
-    // 500Hz: the SensorLib QMI8658_TapDetectionExample's own doc comments
-    // call this "the recommended output data rate for detection" — tap
-    // detection's peakWindow/tapWindow/dTapWindow sample counts (see
-    // imuEnableTap()) are all defined relative to this rate. Also smoother
-    // for tilt reading than the previous 125Hz, at negligible extra cost.
     if (!qmi.configAccelerometer(SensorQMI8658::ACC_RANGE_4G,
-                                  SensorQMI8658::ACC_ODR_500Hz,
+                                  SensorQMI8658::ACC_ODR_125Hz,
                                   SensorQMI8658::LPF_MODE_0)) {
         imuReady = false;
         return false;
@@ -118,61 +113,4 @@ float imuReadTiltDegrees() {
     float angleRad = atan2(ax, az);
     float angleDeg = angleRad * 180.0f / PI;
     return angleDeg;
-}
-
-bool imuEnableTap() {
-    // The QMI8658's own hardware tap detector (configTap()/getTapStatus())
-    // was tried first and never classified a single tap during real
-    // on-desk testing, even though the raw accelerometer clearly showed
-    // jolts (peaks of 1.2-2.25g against a ~1.0g quiet baseline) — its
-    // internal peak-shape algorithm is tuned for a tap on the device
-    // itself, not one transmitted through a desk. imuCheckDoubleTap()
-    // instead thresholds the raw accelerometer magnitude directly, using
-    // those real captured values as its basis (verified end-to-end on real
-    // hardware), so no chip-side tap configuration is needed here.
-    return imuReady;
-}
-
-bool imuCheckDoubleTap() {
-    if (!imuReady) return false;
-
-    // Real desk-tap data captured via imuLogAccelPeaks(): resting baseline
-    // ~1.0-1.1g; observed real taps have ranged 1.2-2.25g depending on tap
-    // force. kTapThresholdG sits above the noise floor but low enough to
-    // catch a gentler tap too.
-    constexpr float kTapThresholdG = 1.2f;
-    // Ignore further peaks for a bit after one, so a single physical tap's
-    // ringing/bounce isn't counted as multiple taps.
-    constexpr unsigned long kRefractoryMs = 150;
-    // Max gap between the two taps of a double-tap; past this, the first
-    // tap is treated as just a single tap and the wait resets.
-    constexpr unsigned long kDoubleTapWindowMs = 600;
-
-    static unsigned long lastTapMs = 0;
-    static unsigned long firstTapMs = 0;
-    static bool waitingForSecondTap = false;
-
-    float ax = 0, ay = 0, az = 0;
-    if (!qmi.getAccelerometer(ax, ay, az)) return false;
-    float magnitude = sqrtf(ax * ax + ay * ay + az * az);
-
-    unsigned long nowMs = millis();
-
-    if (waitingForSecondTap && (nowMs - firstTapMs) > kDoubleTapWindowMs) {
-        waitingForSecondTap = false; // timed out: that was just a single tap
-    }
-
-    bool isPeak = magnitude > kTapThresholdG;
-    bool pastRefractory = (nowMs - lastTapMs) > kRefractoryMs;
-    if (!isPeak || !pastRefractory) return false;
-
-    lastTapMs = nowMs;
-
-    if (waitingForSecondTap) {
-        waitingForSecondTap = false;
-        return true; // double-tap
-    }
-    waitingForSecondTap = true;
-    firstTapMs = nowMs;
-    return false;
 }

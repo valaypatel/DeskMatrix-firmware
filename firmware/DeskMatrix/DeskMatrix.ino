@@ -23,8 +23,6 @@ ConfigServer configServer(appConfig, settingsStore);
 ScreenStateMachine stateMachine;
 TiltDebouncer tiltDebouncer(25.0f, 5);
 bool imuAvailable = false;
-bool tapDetectAvailable = false;
-bool screenOff = false; // toggled by double-tap, independent of ScreenMode
 SpotifyService* spotifyService = nullptr;
 
 AppConfig defaultConfig() {
@@ -114,12 +112,7 @@ void setup() {
                                        appConfig.spotify.refreshToken, appConfig.spotify.pollSec);
 
   imuAvailable = imuBegin();
-  if (!imuAvailable) {
-    Serial.println("IMU not found — DND/BRB disabled this boot.");
-  } else {
-    tapDetectAvailable = imuEnableTap();
-    if (!tapDetectAvailable) Serial.println("IMU tap detection failed to configure.");
-  }
+  if (!imuAvailable) Serial.println("IMU not found — DND/BRB disabled this boot.");
 
   stateMachine.wifiConfigured(); // Wi-Fi already connected above; move state machine to SCREENSAVER
 
@@ -162,30 +155,6 @@ void loop() {
     else stateMachine.tiltCenter();
   }
 #endif
-
-  // Double-tap toggles the screen on/off, independent of ENABLE_IMU_TILT
-  // and ScreenMode — a tap doesn't have tilt's "misreads level as tilted"
-  // calibration problem (it's edge-triggered on a real physical event, not
-  // a continuous ambiguous angle), so this stays enabled even while tilt
-  // is off. Polled every iteration (not gated, unlike the tilt poll above)
-  // — see imuCheckDoubleTap()'s comment: a tap is a brief transient that a
-  // coarser interval could miss, and there's no interrupt pin wired here.
-  if (tapDetectAvailable) {
-    if (imuCheckDoubleTap()) {
-      screenOff = !screenOff;
-      Serial.println(screenOff ? "[tap] double-tap: screen off" : "[tap] double-tap: screen on");
-      if (screenOff) {
-        // Clear+flip twice: double-buffered, so a single pass only blanks
-        // one of the two physical buffers — the next flip from whatever
-        // resumes later would flash the other buffer's stale content.
-        dma_display->clearScreen();
-        dma_display->flipDMABuffer();
-        dma_display->clearScreen();
-        dma_display->flipDMABuffer();
-      }
-    }
-  }
-  if (screenOff) return; // config/Spotify polling above keeps running; only rendering pauses
 
   if (stateMachine.mode() == ScreenMode::SCREENSAVER) {
     // Not gated by any fixed tick: GIF playback paces itself off each
