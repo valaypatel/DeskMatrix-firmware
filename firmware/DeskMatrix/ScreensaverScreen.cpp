@@ -94,6 +94,12 @@ void drawScreensaverFrame(MatrixPanel_I2S_DMA* display) {
     unsigned long nowMs = millis();
     if (nowMs < g_nextFrameDueMs) return;
 
+    // Clear before drawing: a GIF smaller than the 64x64 panel, or one that
+    // doesn't cover every pixel every frame, would otherwise leave whatever
+    // was drawn by the previous screen (e.g. the Spotify record) showing
+    // through in the uncovered area — confirmed on real hardware.
+    display->clearScreen();
+
     g_display = display;
     int delayMs = 0;
     int result = g_gif.playFrame(false, &delayMs);
