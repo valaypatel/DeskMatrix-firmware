@@ -15,6 +15,12 @@ public:
     // re-apply it to live services (e.g. WeatherService) without a reboot.
     bool configChanged();
 
+    // True once POST /api/shutdown has been called — permanent for this
+    // boot, never resets. DeskMatrix.ino's loop() checks this first, before
+    // anything else, and once true shows a "safe to unplug" screen and
+    // halts everything else (no more flash writes possible after that).
+    bool shutdownRequested() const { return shutdownRequested_; }
+
 private:
     // HTTP Basic Auth gate for the config page and its API. Returns true if
     // the request is authorized; otherwise sends a 401 challenge itself and
@@ -34,9 +40,11 @@ private:
     void handlePostDndUpload();
     void handlePostDndResponse();
     void handleOtaUpload();
+    void handlePostShutdown();
 
     WebServer server_;
     AppConfig& appConfig_;
     SettingsStore& store_;
     bool configChanged_ = false;
+    bool shutdownRequested_ = false;
 };

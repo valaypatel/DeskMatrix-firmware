@@ -63,6 +63,25 @@ void initPanel() {
   dma_display->clearScreen();
 }
 
+void drawSafeToUnplugScreen() {
+  // Drawn into both physical buffers (draw+flip twice), so the message
+  // stays visible regardless of the display's double-buffer ping-pong
+  // parity — same reasoning as the screen-off clear in earlier tap-toggle
+  // work this session (see git history), just showing content instead of
+  // black.
+  for (int i = 0; i < 2; i++) {
+    dma_display->clearScreen();
+    dma_display->setTextSize(1);
+    dma_display->setTextWrap(false);
+    dma_display->setTextColor(dma_display->color565(80, 220, 120));
+    dma_display->setCursor(4, 20);
+    dma_display->print("SAFE TO");
+    dma_display->setCursor(4, 32);
+    dma_display->print("UNPLUG");
+    dma_display->flipDMABuffer();
+  }
+}
+
 void drawIpScreen(const String& ip) {
   dma_display->clearScreen();
   dma_display->setTextSize(1);
@@ -124,7 +143,26 @@ void setup() {
 }
 
 void loop() {
+  // Once POST /api/shutdown has been handled, freeze here permanently for
+  // this boot: no more configServer.loop() means the web server never
+  // processes another request (so no new upload/config-save can start),
+  // and nothing below this ever runs again (no Spotify polling, no
+  // rendering, no BOOT-button/Wi-Fi handling) — guaranteeing no further
+  // flash writes once the "SAFE TO UNPLUG" screen is showing.
+  static bool halted = false;
+  if (halted) {
+    delay(1000);
+    return;
+  }
+
   configServer.loop();
+
+  if (configServer.shutdownRequested()) {
+    halted = true;
+    drawSafeToUnplugScreen();
+    Serial.println("[shutdown] halted for safe power-off");
+    return;
+  }
 
   if (configServer.configChanged()) {
     Serial.println("[config] change detected");
@@ -158,7 +196,12 @@ void loop() {
     if (!wifiResetTriggered && (nowMs - buttonHeldSinceMs) >= WIFI_RESET_HOLD_MS) {
       wifiResetTriggered = true;
       Serial.println("[wifi] BOOT held: forgetting Wi-Fi and restarting");
-      WiFi.disconnect(true, true); // erase stored credentials from flash
+      // wm.resetSettings(), not WiFi.disconnect(true, true) — confirmed on
+      // real hardware that the latter doesn't reliably stop WiFiManager's
+      // own autoConnect() from reconnecting anyway on the next boot (it
+      // apparently checks its own separately-persisted state first).
+      // resetSettings() is WiFiManager's own purpose-built API for this.
+      wm.resetSettings();
       delay(200);
       ESP.restart();
     }

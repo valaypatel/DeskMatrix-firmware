@@ -6,8 +6,16 @@
 #include <Update.h>
 #include <LittleFS.h>
 #include <WiFi.h>
+#include <WiFiManager.h>
 #include <ArduinoJson.h>
 #include <cstring>
+
+// The single WiFiManager instance owned by DeskMatrix.ino — reused here so
+// /api/wifi/forget can call its resetSettings(), which is the officially
+// correct way to fully forget a network (confirmed on real hardware that
+// WiFi.disconnect(true, true) alone doesn't reliably stop WiFiManager's
+// own autoConnect() from reconnecting anyway on the next boot).
+extern WiFiManager wm;
 
 namespace {
 // Single-page config UI: Wi-Fi, screensaver GIF upload, brightness.
@@ -69,6 +77,13 @@ button:hover{background:#444}
 <div class="status" id="brightnessStatus"></div>
 </section>
 
+<section>
+<h2>Device</h2>
+<p style="margin:0 0 .8em;font-size:.9em;color:#555">Before unplugging the device, use this to make sure nothing is mid-write to flash.</p>
+<button type="button" id="shutdownBtn" style="background:#b00020">Safe to unplug</button>
+<div class="status" id="shutdownStatus"></div>
+</section>
+
 <script>
 async function getConfig() { return (await fetch('/api/config')).json(); }
 async function putConfig(cfg) {
@@ -125,6 +140,16 @@ document.getElementById('wifiForgetBtn').addEventListener('click', async () => {
   } catch (err) { status.textContent = 'Restarting (connection dropped as expected).'; status.className = 'status ok'; }
 });
 
+document.getElementById('shutdownBtn').addEventListener('click', async () => {
+  if (!confirm('Halt the device for safe power-off? Everything stops responding until you unplug and power it back on.')) return;
+  const status = document.getElementById('shutdownStatus');
+  status.textContent = 'Halting...'; status.className = 'status';
+  try {
+    await fetch('/api/shutdown', {method:'POST'});
+    status.textContent = 'Check the panel - once it shows "SAFE TO UNPLUG", it\'s safe to disconnect power.'; status.className = 'status ok';
+  } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
+});
+
 async function uploadImage(url, inputId, statusId) {
   const status = document.getElementById(statusId);
   const file = document.getElementById(inputId).files[0];
@@ -170,11 +195,12 @@ void ConfigServer::begin() {
     server_.on("/api/config", HTTP_PUT, [this]() { handlePutConfig(); });
     server_.on("/api/wifi", HTTP_POST, [this]() { handlePostWifi(); });
     server_.on("/api/wifi/scan", HTTP_GET, [this]() { handleGetWifiScan(); });
+    server_.on("/api/shutdown", HTTP_POST, [this]() { handlePostShutdown(); });
     server_.on("/api/wifi/forget", HTTP_POST, [this]() {
         if (!checkAuth()) return;
         server_.send(200, "application/json", "{\"status\":\"forgetting\"}");
         delay(200); // let the response flush before the network drops
-        WiFi.disconnect(true, true); // erase stored credentials from flash
+        wm.resetSettings();
         delay(200);
         ESP.restart();
     });
@@ -252,6 +278,12 @@ void ConfigServer::handlePostWifi() {
     delay(200); // let the response flush before the network drops
     WiFi.disconnect();
     WiFi.begin(ssid.c_str(), password.c_str()); // persistent by default: also becomes the auto-connect target on next boot
+}
+
+void ConfigServer::handlePostShutdown() {
+    if (!checkAuth()) return;
+    shutdownRequested_ = true; // DeskMatrix.ino's loop() picks this up on its next iteration
+    server_.send(200, "application/json", "{\"status\":\"shutting down\"}");
 }
 
 void ConfigServer::handleGetWifiScan() {
