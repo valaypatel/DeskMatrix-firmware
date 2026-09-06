@@ -18,9 +18,9 @@ constexpr int kSize = 64;                 // panel is fixed 64x64 (config.h)
 constexpr int kMargin = 2;                // gap between record edge and panel edge
 constexpr int kCenter = kSize / 2;
 constexpr float kOuterRadius = kSize / 2.0f - kMargin;
-constexpr float kLabelRadius = 6.0f;      // center label
-constexpr float kHoleRadius = 3.0f;       // spindle hole
-constexpr float kBorderWidth = 2.0f;      // record-edge ring thickness
+constexpr float kLabelRadius = 4.0f;      // center label
+constexpr float kHoleRadius = 2.0f;       // spindle hole
+constexpr float kBorderWidth = 1.5f;      // record-edge ring thickness (~1-2px)
 constexpr float kDegreesPerTick = 6.0f;   // spin speed: full rotation every ~6s at kTickMs
 constexpr unsigned long kTickMs = 100;    // redraw cadence while on this screen
 
@@ -70,7 +70,7 @@ void renderRecordFrame(MatrixPanel_I2S_DMA* display) {
             if (dist > kOuterRadius) {
                 pixel = 0; // black background outside the record
             } else if (dist > kOuterRadius - kBorderWidth) {
-                pixel = colorRGB565(6, 6, 6); // dark edge ring
+                pixel = colorRGB565(35, 35, 35); // visible thin outline, not just near-black
             } else if (dist <= kHoleRadius) {
                 pixel = 0; // spindle hole
             } else if (dist <= kLabelRadius) {
