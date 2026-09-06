@@ -88,29 +88,22 @@ bool imuBegin() {
     return true;
 }
 
-float imuReadTiltDegrees() {
-    if (!imuReady) return 0.0f;
+PanelOrientation imuReadOrientation() {
+    if (!imuReady) return PanelOrientation::NORMAL;
 
     float ax = 0, ay = 0, az = 0;
     if (!qmi.getAccelerometer(ax, ay, az)) {
-        return 0.0f;
+        return PanelOrientation::NORMAL;
     }
 
-    // NOT PHYSICALLY VERIFIED — no hardware is attached in this environment,
-    // so the axis/sign below could not be confirmed by tilting a real board
-    // (the brief's Step 3 verification is genuinely impossible without
-    // hardware; it depends on how the sensor die is oriented on this PCB).
-    //
-    // This uses the standard tilt-angle formula atan2(x, z), which is the
-    // typical convention for "left/right" tilt about the axis perpendicular
-    // to the display face, per Waveshare's example reading ax/ay/az in that
-    // axis order. TiltDebouncer's contract requires negative = left,
-    // positive = right (see TiltDebouncer.h) — once real hardware is
-    // available, tilt the board left and right while watching
-    // Serial.println(imuReadTiltDegrees()) and, if the sign or axis is
-    // backwards, swap the axes or negate the result. That is expected to be
-    // a one-line fix here, not a redesign.
-    float angleRad = atan2(ax, az);
-    float angleDeg = angleRad * 180.0f / PI;
-    return angleDeg;
+    // See this function's header comment for the reference readings this
+    // is based on. ay dominant (over ax) and clearly non-zero means the
+    // panel has been rotated into the D or B position; its sign tells
+    // which. Everything else — ax dominant (the A or C position) or a
+    // transitional reading mid-rotation — falls back to NORMAL.
+    constexpr float kMinDominantG = 0.5f; // reference orientations read ~1g; well clear of noise
+    if (fabsf(ay) > fabsf(ax) && fabsf(ay) > kMinDominantG) {
+        return (ay > 0) ? PanelOrientation::DND : PanelOrientation::BRB;
+    }
+    return PanelOrientation::NORMAL;
 }

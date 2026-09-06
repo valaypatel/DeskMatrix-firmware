@@ -8,7 +8,7 @@
 #include "services/SpotifyService.h"
 #include "screens/SpotifyScreen.h"
 #include "ScreenStateMachine.h"
-#include "TiltDebouncer.h"
+#include "OrientationDebouncer.h"
 #include "services/ImuHardware.h"
 #include "screens/DndScreen.h"
 #include "screens/BrbScreen.h"
@@ -21,7 +21,7 @@ SettingsStore settingsStore;
 AppConfig appConfig;
 ConfigServer configServer(appConfig, settingsStore);
 ScreenStateMachine stateMachine;
-TiltDebouncer tiltDebouncer(25.0f, 5);
+OrientationDebouncer orientationDebouncer(5);
 bool imuAvailable = false;
 SpotifyService* spotifyService = nullptr;
 
@@ -145,13 +145,16 @@ void loop() {
   unsigned long nowMs = millis();
 
 #if ENABLE_IMU_TILT
+  // "Tilt" here means physically rotating the whole panel 90° in place on
+  // its desk stand (see services/ImuHardware.h) — tiltLeft()/tiltRight()/
+  // tiltCenter() are just ScreenStateMachine's existing DND/BRB/normal API
+  // reused for that gesture, not a rocking motion.
   static unsigned long lastImuPollMs = 0;
   if (imuAvailable && (nowMs - lastImuPollMs) >= 150) {
     lastImuPollMs = nowMs;
-    float angle = imuReadTiltDegrees();
-    TiltDirection dir = tiltDebouncer.update(angle);
-    if (dir == TiltDirection::LEFT) stateMachine.tiltLeft();
-    else if (dir == TiltDirection::RIGHT) stateMachine.tiltRight();
+    PanelOrientation orientation = orientationDebouncer.update(imuReadOrientation());
+    if (orientation == PanelOrientation::DND) stateMachine.tiltLeft();
+    else if (orientation == PanelOrientation::BRB) stateMachine.tiltRight();
     else stateMachine.tiltCenter();
   }
 #endif
@@ -174,11 +177,24 @@ void loop() {
 
   // Tracks how long we've been in DND, so a fresh tilt-left shows the IP
   // first (a quick, no-reboot way to look up the device's address) before
-  // settling into the normal DND indicator.
+  // settling into the normal DND indicator. A brief flicker back out of
+  // DND (e.g. hand tremor while holding the panel, a tiny knock — the
+  // orientation classifier debounces but can't fully rule this out) should
+  // NOT restart the countdown, or it can look permanently "stuck" on the
+  // IP screen if that happens repeatedly near the end of the wait
+  // (confirmed live: exactly this symptom). Only treat DND as a genuinely
+  // fresh session — and reset the countdown — if we've been out of it for
+  // longer than a brief flicker plausibly lasts.
+  constexpr unsigned long kDndSessionGraceMs = 2000;
   static ScreenMode lastMode = ScreenMode::WIFI_SETUP;
   static unsigned long dndEnteredMs = 0;
-  if (stateMachine.mode() == ScreenMode::DND && lastMode != ScreenMode::DND) {
-    dndEnteredMs = nowMs;
+  static unsigned long lastDndExitMs = 0;
+  if (stateMachine.mode() == ScreenMode::DND) {
+    if (lastMode != ScreenMode::DND && (nowMs - lastDndExitMs) > kDndSessionGraceMs) {
+      dndEnteredMs = nowMs;
+    }
+  } else if (lastMode == ScreenMode::DND) {
+    lastDndExitMs = nowMs;
   }
   lastMode = stateMachine.mode();
 
