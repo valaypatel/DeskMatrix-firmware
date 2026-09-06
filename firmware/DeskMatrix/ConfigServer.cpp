@@ -42,6 +42,8 @@ button:hover{background:#444}
 <button type="submit">Connect</button>
 <div class="status" id="wifiStatus"></div>
 </form>
+<button type="button" id="wifiForgetBtn" style="background:#b00020;margin-top:.8em">Forget this Wi-Fi network</button>
+<div class="status" id="wifiForgetStatus"></div>
 </section>
 
 <section>
@@ -113,6 +115,16 @@ document.getElementById('wifiForm').addEventListener('submit', async e => {
   } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
 });
 
+document.getElementById('wifiForgetBtn').addEventListener('click', async () => {
+  if (!confirm('Forget the saved Wi-Fi network and restart? The device will open its own "DeskMatrix-Setup" network for reconfiguring — this page will stop responding.')) return;
+  const status = document.getElementById('wifiForgetStatus');
+  status.textContent = 'Forgetting network...'; status.className = 'status';
+  try {
+    await fetch('/api/wifi/forget', {method:'POST'});
+    status.textContent = 'Restarting - connect to the "DeskMatrix-Setup" Wi-Fi network to reconfigure.'; status.className = 'status ok';
+  } catch (err) { status.textContent = 'Restarting (connection dropped as expected).'; status.className = 'status ok'; }
+});
+
 async function uploadImage(url, inputId, statusId) {
   const status = document.getElementById(statusId);
   const file = document.getElementById(inputId).files[0];
@@ -158,6 +170,14 @@ void ConfigServer::begin() {
     server_.on("/api/config", HTTP_PUT, [this]() { handlePutConfig(); });
     server_.on("/api/wifi", HTTP_POST, [this]() { handlePostWifi(); });
     server_.on("/api/wifi/scan", HTTP_GET, [this]() { handleGetWifiScan(); });
+    server_.on("/api/wifi/forget", HTTP_POST, [this]() {
+        if (!checkAuth()) return;
+        server_.send(200, "application/json", "{\"status\":\"forgetting\"}");
+        delay(200); // let the response flush before the network drops
+        WiFi.disconnect(true, true); // erase stored credentials from flash
+        delay(200);
+        ESP.restart();
+    });
     server_.on("/api/assets", HTTP_POST,
         [this]() { handlePostAssetResponse(); },
         [this]() { handlePostAssetUpload(); });

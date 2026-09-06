@@ -144,6 +144,29 @@ void loop() {
 
   unsigned long nowMs = millis();
 
+  // Hold the physical BOOT button for WIFI_RESET_HOLD_MS to forget the
+  // saved Wi-Fi network and reboot into the "DeskMatrix-Setup" captive
+  // portal — the way to recover if the device is moved somewhere its
+  // current network doesn't reach and there's no other way to reach the
+  // config API. Checked every iteration, before any early-return below, so
+  // it works regardless of current ScreenMode. BOOT_BUTTON_PIN is
+  // INPUT_PULLUP, so pressed reads LOW.
+  static unsigned long buttonHeldSinceMs = 0;
+  static bool wifiResetTriggered = false;
+  if (digitalRead(BOOT_BUTTON_PIN) == LOW) {
+    if (buttonHeldSinceMs == 0) buttonHeldSinceMs = nowMs;
+    if (!wifiResetTriggered && (nowMs - buttonHeldSinceMs) >= WIFI_RESET_HOLD_MS) {
+      wifiResetTriggered = true;
+      Serial.println("[wifi] BOOT held: forgetting Wi-Fi and restarting");
+      WiFi.disconnect(true, true); // erase stored credentials from flash
+      delay(200);
+      ESP.restart();
+    }
+  } else {
+    buttonHeldSinceMs = 0;
+    wifiResetTriggered = false;
+  }
+
 #if ENABLE_IMU_TILT
   // "Tilt" here means physically rotating the whole panel 90° in place on
   // its desk stand (see services/ImuHardware.h) — tiltLeft()/tiltRight()/
