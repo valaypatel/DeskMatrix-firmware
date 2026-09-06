@@ -157,13 +157,21 @@ void loop() {
     return;
   }
 
+  if (stateMachine.mode() == ScreenMode::SPOTIFY_PLAYING) {
+    // Not gated by the fixed tick below: drawSpotifyScreen() only redraws
+    // (and flips) when the album art URL actually changes. With true
+    // double-buffering, flipping on every tick regardless — as the block
+    // below does for DND/BRB, which redraw unconditionally — would swap in
+    // whatever stale/blank content is sitting in the other buffer,
+    // producing a visible flash every second (confirmed on real hardware).
+    drawSpotifyScreen(dma_display, spotify.albumArtUrl);
+    return;
+  }
+
   static unsigned long lastRenderMs = 0;
   if ((nowMs - lastRenderMs) >= 1000) {
     lastRenderMs = nowMs;
     switch (stateMachine.mode()) {
-      case ScreenMode::SPOTIFY_PLAYING:
-        drawSpotifyScreen(dma_display, spotify.albumArtUrl);
-        break;
       case ScreenMode::DND:
         drawDndScreen(dma_display);
         break;

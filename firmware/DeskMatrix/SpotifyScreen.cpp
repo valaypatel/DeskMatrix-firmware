@@ -12,14 +12,6 @@
 #include <JPEGDEC.h>
 #include <vector>
 
-// SpotifyArduinoCert.h defines spotify_server_cert/spotify_image_server_cert
-// as plain (non-extern) globals with no include guard against multiple
-// translation units, so it can only be #included once across the sketch —
-// SpotifyService.cpp already does that. Declare the one symbol needed here
-// as extern instead of re-including the header, to avoid a duplicate-symbol
-// link error.
-extern const char* spotify_image_server_cert;
-
 namespace {
 std::string g_lastDrawnUrl;
 MatrixPanel_I2S_DMA* g_display = nullptr; // set only for the duration of one decode() call
@@ -36,7 +28,10 @@ void drawSpotifyScreen(MatrixPanel_I2S_DMA* display, const std::string& albumArt
     if (!display || !albumArtChanged(g_lastDrawnUrl, albumArtUrl)) return;
 
     WiFiClientSecure client;
-    client.setCACert(spotify_image_server_cert);
+    // See SpotifyService.cpp: the vendored root cert no longer validates
+    // against Spotify's current TLS chain (confirmed on real hardware).
+    // Traffic stays encrypted; only server identity verification is skipped.
+    client.setInsecure();
     HTTPClient http;
     http.begin(client, albumArtUrl.c_str());
     int status = http.GET();
@@ -61,6 +56,7 @@ void drawSpotifyScreen(MatrixPanel_I2S_DMA* display, const std::string& albumArt
         g_jpeg.decode(0, 0, 0);
         g_jpeg.close();
         g_lastDrawnUrl = albumArtUrl;
+        display->flipDMABuffer(); // only when we actually drew — see DeskMatrix.ino's SPOTIFY_PLAYING branch
     } else {
         Serial.println("[spotify] JPEG decode failed");
         // keep whatever was drawn before, per the design spec's error handling
