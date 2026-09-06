@@ -1,11 +1,4 @@
 // firmware/DeskMatrix/ScreensaverScreen.cpp
-//
-// NOT VERIFIED AGAINST REAL HARDWARE — AnimatedGIF's exact callback
-// signatures and palette-mode constant name have varied slightly between
-// library releases. Confirm this compiles as-is against whatever version
-// `arduino-cli lib install AnimatedGIF` pulls; expected to be a small
-// signature fix (e.g. the palette-mode constant name), not a redesign — the
-// same kind of one-time hardware calibration ImuHardware.cpp already needed.
 #include "screens/ScreensaverScreen.h"
 #include <AnimatedGIF.h>
 #include <LittleFS.h>
@@ -26,24 +19,60 @@ void* gifOpen(const char* filename, int32_t* size) {
 void gifClose(void*) {
     if (g_gifFile) g_gifFile.close();
 }
-int32_t gifRead(GIFFILE*, uint8_t* buffer, int32_t length) {
+// AnimatedGIF never advances GIFFILE::iPos itself — the read/seek callbacks
+// own that bookkeeping (see the library's own ESP32 HUB75 example). Leaving
+// it at 0 forever (as an earlier version of this file did) breaks the
+// library's EOF/rewind detection and its playFrame() "more frames left"
+// return value, since both are computed from iPos.
+int32_t gifRead(GIFFILE* pFile, uint8_t* buffer, int32_t length) {
     if (!g_gifFile) return 0;
-    return g_gifFile.read(buffer, length);
+    int32_t bytesRead = length;
+    if ((pFile->iSize - pFile->iPos) < length) {
+        bytesRead = pFile->iSize - pFile->iPos - 1; // avoid reading the literal last byte (upstream quirk)
+    }
+    if (bytesRead <= 0) return 0;
+    bytesRead = g_gifFile.read(buffer, bytesRead);
+    pFile->iPos = g_gifFile.position();
+    return bytesRead;
 }
-int32_t gifSeek(GIFFILE*, int32_t position) {
+int32_t gifSeek(GIFFILE* pFile, int32_t position) {
     if (!g_gifFile) return 0;
     g_gifFile.seek(position);
-    return position;
+    pFile->iPos = g_gifFile.position();
+    return pFile->iPos;
 }
 
-// Called once per decoded scanline with pre-resolved RGB565 pixels
-// (gif.begin() below selects the RGB565 draw mode rather than raw palette
-// indices, so no manual palette lookup is needed here).
+// Called once per decoded scanline. pDraw->pPixels is always an 8-bit
+// palette-index array in this library (confirmed against AnimatedGIF.h and
+// its own ESP32 HUB75 example) — BIG_ENDIAN_PIXELS only controls the byte
+// order of the RGB565 entries in pDraw->pPalette, it does not switch
+// pPixels itself to raw RGB565. Every pixel must be looked up through the
+// palette.
 void gifDraw(GIFDRAW* pDraw) {
     if (!g_display) return;
-    uint16_t* row = (uint16_t*)pDraw->pPixels;
-    for (int x = 0; x < pDraw->iWidth; x++) {
-        g_display->drawPixel(pDraw->iX + x, pDraw->iY + pDraw->y, row[x]);
+    int y = pDraw->iY + pDraw->y;
+    uint8_t* s = pDraw->pPixels;
+    uint16_t* palette = pDraw->pPalette;
+
+    if (pDraw->ucDisposalMethod == 2) { // restore to background color
+        for (int x = 0; x < pDraw->iWidth; x++) {
+            if (s[x] == pDraw->ucTransparent) s[x] = pDraw->ucBackground;
+        }
+        pDraw->ucHasTransparency = 0;
+    }
+
+    if (pDraw->ucHasTransparency) {
+        uint8_t transparent = pDraw->ucTransparent;
+        for (int x = 0; x < pDraw->iWidth; x++) {
+            uint8_t idx = s[x];
+            if (idx != transparent) {
+                g_display->drawPixel(pDraw->iX + x, y, palette[idx]);
+            }
+        }
+    } else {
+        for (int x = 0; x < pDraw->iWidth; x++) {
+            g_display->drawPixel(pDraw->iX + x, y, palette[s[x]]);
+        }
     }
 }
 }  // namespace
