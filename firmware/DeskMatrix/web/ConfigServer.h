@@ -16,8 +16,10 @@ public:
     bool configChanged();
 
 private:
+    void handleGetRoot();
     void handleGetConfig();
     void handlePutConfig();
+    void handlePostWifi();
     void handlePostAssetUpload();
     void handlePostAssetResponse();
     void handlePostScreensaverUpload();

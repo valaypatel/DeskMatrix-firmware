@@ -4,14 +4,122 @@
 #include "screens/ScreensaverScreen.h"
 #include <Update.h>
 #include <LittleFS.h>
+#include <WiFi.h>
+#include <ArduinoJson.h>
 #include <cstring>
+
+namespace {
+// Single-page config UI: Wi-Fi, screensaver GIF upload, brightness.
+// Deliberately plain (no framework, minimal inline JS) — served straight
+// from flash, no LittleFS asset needed.
+const char kConfigPageHtml[] PROGMEM = R"HTML(<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DeskMatrix Config</title>
+<style>
+body{font-family:-apple-system,sans-serif;max-width:420px;margin:2em auto;padding:0 1em;color:#222}
+h1{font-size:1.3em}
+section{margin-bottom:2em;padding-bottom:1.5em;border-bottom:1px solid #ddd}
+label{display:block;margin-bottom:.4em;font-weight:600}
+input[type=text],input[type=password],input[type=file]{width:100%;padding:.5em;margin-bottom:.8em;box-sizing:border-box}
+input[type=range]{width:100%}
+button{padding:.6em 1.2em;border:0;background:#222;color:#fff;border-radius:4px;cursor:pointer}
+button:hover{background:#444}
+.status{margin-top:.6em;font-size:.9em}
+.ok{color:#0a7a2f}.err{color:#b00020}
+</style></head>
+<body>
+<h1>DeskMatrix Config</h1>
+
+<section>
+<h2>Wi-Fi</h2>
+<form id="wifiForm">
+<label>SSID</label><input type="text" id="wifiSsid" required>
+<label>Password</label><input type="password" id="wifiPass">
+<button type="submit">Connect</button>
+<div class="status" id="wifiStatus"></div>
+</form>
+</section>
+
+<section>
+<h2>Screensaver GIF</h2>
+<label>Upload a 64x64 GIF (replaces the current one)</label>
+<input type="file" id="gifFile" accept=".gif">
+<button id="gifUpload">Upload</button>
+<div class="status" id="gifStatus"></div>
+</section>
+
+<section>
+<h2>Brightness</h2>
+<label>Panel brightness (<span id="brightnessVal">-</span> / 255)</label>
+<input type="range" id="brightness" min="0" max="255">
+<div class="status" id="brightnessStatus"></div>
+</section>
+
+<script>
+async function getConfig() { return (await fetch('/api/config')).json(); }
+async function putConfig(cfg) {
+  return fetch('/api/config', {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg)});
+}
+
+getConfig().then(cfg => {
+  document.getElementById('brightness').value = cfg.brightness;
+  document.getElementById('brightnessVal').textContent = cfg.brightness;
+});
+
+document.getElementById('wifiForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const status = document.getElementById('wifiStatus');
+  status.textContent = 'Connecting...'; status.className = 'status';
+  try {
+    const res = await fetch('/api/wifi', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ssid: document.getElementById('wifiSsid').value, password: document.getElementById('wifiPass').value})});
+    const body = await res.json();
+    if (res.ok) { status.textContent = 'Reconnecting to new network - this page will stop responding until it does.'; status.className = 'status ok'; }
+    else { status.textContent = body.error || 'Failed'; status.className = 'status err'; }
+  } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
+});
+
+document.getElementById('gifUpload').addEventListener('click', async () => {
+  const status = document.getElementById('gifStatus');
+  const file = document.getElementById('gifFile').files[0];
+  if (!file) { status.textContent = 'Choose a file first'; status.className = 'status err'; return; }
+  status.textContent = 'Uploading...'; status.className = 'status';
+  try {
+    const res = await fetch('/api/screensaver', {method:'POST', body: file});
+    const body = await res.json();
+    if (res.ok) { status.textContent = 'Uploaded - now playing.'; status.className = 'status ok'; }
+    else { status.textContent = body.error || 'Failed'; status.className = 'status err'; }
+  } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
+});
+
+let brightnessTimer;
+document.getElementById('brightness').addEventListener('input', e => {
+  document.getElementById('brightnessVal').textContent = e.target.value;
+  clearTimeout(brightnessTimer);
+  brightnessTimer = setTimeout(async () => {
+    const status = document.getElementById('brightnessStatus');
+    try {
+      const cfg = await getConfig();
+      cfg.brightness = parseInt(e.target.value, 10);
+      const res = await putConfig(cfg);
+      status.textContent = res.ok ? 'Saved.' : 'Failed to save.';
+      status.className = res.ok ? 'status ok' : 'status err';
+    } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
+  }, 300);
+});
+</script>
+</body></html>
+)HTML";
+}  // namespace
 
 ConfigServer::ConfigServer(AppConfig& appConfig, SettingsStore& store)
     : server_(80), appConfig_(appConfig), store_(store) {}
 
 void ConfigServer::begin() {
+    server_.on("/", HTTP_GET, [this]() { handleGetRoot(); });
     server_.on("/api/config", HTTP_GET, [this]() { handleGetConfig(); });
     server_.on("/api/config", HTTP_PUT, [this]() { handlePutConfig(); });
+    server_.on("/api/wifi", HTTP_POST, [this]() { handlePostWifi(); });
     server_.on("/api/assets", HTTP_POST,
         [this]() { handlePostAssetResponse(); },
         [this]() { handlePostAssetUpload(); });
@@ -36,6 +144,10 @@ bool ConfigServer::configChanged() {
     return changed;
 }
 
+void ConfigServer::handleGetRoot() {
+    server_.send(200, "text/html", kConfigPageHtml);
+}
+
 void ConfigServer::handleGetConfig() {
     server_.send(200, "application/json", serializeConfig(appConfig_).c_str());
 }
@@ -52,6 +164,22 @@ void ConfigServer::handlePutConfig() {
     store_.save(serializeConfig(appConfig_));
     configChanged_ = true;
     server_.send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
+void ConfigServer::handlePostWifi() {
+    std::string body = server_.arg("plain").c_str();
+    JsonDocument doc;
+    if (deserializeJson(doc, body) || !doc["ssid"].is<const char*>() || strlen(doc["ssid"] | "") == 0) {
+        server_.send(400, "application/json", "{\"error\":\"missing ssid\"}");
+        return;
+    }
+    std::string ssid = doc["ssid"] | "";
+    std::string password = doc["password"] | "";
+
+    server_.send(200, "application/json", "{\"status\":\"reconnecting\"}");
+    delay(200); // let the response flush before the network drops
+    WiFi.disconnect();
+    WiFi.begin(ssid.c_str(), password.c_str()); // persistent by default: also becomes the auto-connect target on next boot
 }
 
 void ConfigServer::handlePostAssetUpload() {

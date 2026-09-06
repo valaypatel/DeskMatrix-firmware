@@ -101,6 +101,7 @@ void setup() {
   connectWifi();
   settingsStore.begin();
   loadOrInitConfig();
+  dma_display->setBrightness8(appConfig.brightness); // initPanel()'s 90 was just a pre-config-load placeholder
 
   loadScreensaverGif(); // ok if this returns false: screensaver just shows blank until one is uploaded
   spotifyService = new SpotifyService(appConfig.spotify.clientId, appConfig.spotify.clientSecret,
@@ -125,6 +126,7 @@ void loop() {
     Serial.println("[config] change detected");
     spotifyService->configure(appConfig.spotify.clientId, appConfig.spotify.clientSecret,
                                appConfig.spotify.refreshToken, appConfig.spotify.pollSec);
+    dma_display->setBrightness8(appConfig.brightness);
   }
 
   spotifyService->loop(); // polls continuously regardless of current mode, so a mode switch happens promptly

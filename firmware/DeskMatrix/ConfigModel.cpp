@@ -19,6 +19,11 @@ bool parseConfig(const std::string& json, AppConfig& out, std::string& error) {
     out.dndArt = std::string(doc["dnd"]["art"] | "dnd_default");
     out.brbArt = std::string(doc["brb"]["art"] | "brb_default");
 
+    int brightness = doc["brightness"] | 90;
+    if (brightness < 0) brightness = 0;
+    if (brightness > 255) brightness = 255;
+    out.brightness = brightness;
+
     return true;
 }
 
@@ -33,6 +38,7 @@ std::string serializeConfig(const AppConfig& config) {
 
     doc["dnd"]["art"] = config.dndArt;
     doc["brb"]["art"] = config.brbArt;
+    doc["brightness"] = config.brightness;
 
     std::string out;
     serializeJson(doc, out);

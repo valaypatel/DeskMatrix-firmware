@@ -23,6 +23,7 @@ int main() {
     CHECK_EQ(cfg.spotify.pollSec, 5);
     CHECK_EQ(cfg.dndArt, "dnd_default");
     CHECK_EQ(cfg.brbArt, "brb_default");
+    CHECK_EQ(cfg.brightness, 90);
 
     // No spotify block yet (fresh device): defaults apply, no error
     AppConfig fresh;
@@ -30,6 +31,18 @@ int main() {
     CHECK(parseConfig(R"({"dnd":{"art":"dnd_default"},"brb":{"art":"brb_default"}})", fresh, freshError));
     CHECK_EQ(fresh.spotify.clientId, "");
     CHECK_EQ(fresh.spotify.pollSec, 5);
+    CHECK_EQ(fresh.brightness, 90);
+
+    // Brightness is clamped to 0-255
+    AppConfig clampedHigh;
+    std::string clampedHighError;
+    CHECK(parseConfig(R"({"brightness": 999})", clampedHigh, clampedHighError));
+    CHECK_EQ(clampedHigh.brightness, 255);
+
+    AppConfig clampedLow;
+    std::string clampedLowError;
+    CHECK(parseConfig(R"({"brightness": -50})", clampedLow, clampedLowError));
+    CHECK_EQ(clampedLow.brightness, 0);
 
     // Malformed JSON rejected
     AppConfig bad;
@@ -46,6 +59,7 @@ int main() {
     CHECK_EQ(reparsed.spotify.refreshToken, cfg.spotify.refreshToken);
     CHECK_EQ(reparsed.spotify.pollSec, cfg.spotify.pollSec);
     CHECK_EQ(reparsed.dndArt, cfg.dndArt);
+    CHECK_EQ(reparsed.brightness, cfg.brightness);
 
     TEST_SUMMARY();
 }

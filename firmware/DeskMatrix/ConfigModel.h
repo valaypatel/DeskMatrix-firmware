@@ -13,6 +13,7 @@ struct AppConfig {
     SpotifyConfig spotify;
     std::string dndArt = "dnd_default";
     std::string brbArt = "brb_default";
+    int brightness = 90; // 0-255, passed directly to MatrixPanel_I2S_DMA::setBrightness8()
 };
 
 // Returns true and fills `out` on success; returns false and fills `error` on failure.
