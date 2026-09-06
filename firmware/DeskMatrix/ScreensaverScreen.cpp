@@ -147,35 +147,20 @@ bool loadPath(const char* path) {
     return true;
 }
 
-// Draws g_canvas to the display, optionally rotated 90 degrees. The
-// screensaver plays in the panel's native orientation (A-top/C-bottom);
-// DND/BRB are triggered by physically rotating the whole panel 90° on its
-// desk stand (see services/ImuHardware.h), so their content must be
-// counter-rotated the opposite way, or it displays sideways to the viewer
-// once the panel itself has turned (confirmed on real hardware: "DND
-// triggers correctly but the image is still in A-to-C orientation").
-//
-// Direction confirmed on real hardware (CW): an initial CCW guess (based
-// on an assumed A/B/C/D layout) displayed sideways in the wrong direction;
-// switching to CW fixed it.
-void blitCanvasRotated(MatrixPanel_I2S_DMA* display, bool rotate) {
-    if (!rotate) {
-        display->drawRGBBitmap(0, 0, g_canvas, kSize, kSize);
-        return;
-    }
-    // 90° CW: dst(x,y) = src(kSize-1-x, y) in (row,col) terms, i.e.
-    // dst pixel (x,y) reads from canvas row=(kSize-1-x), col=y.
-    for (int y = 0; y < kSize; y++) {
-        for (int x = 0; x < kSize; x++) {
-            display->drawPixel(x, y, g_canvas[(kSize - 1 - x) * kSize + y]);
-        }
-    }
-}
-
 // Shared by drawScreensaverFrame() and drawDndGifFrame(): both just need
 // "make sure `path` is the active GIF, then advance/blit/flip one frame if
 // due" — the actual playback logic doesn't care which screen is asking.
-void playCurrentFrame(MatrixPanel_I2S_DMA* display, const char* path, bool rotate) {
+//
+// No rotation compensation: DND/BRB are triggered by physically rotating
+// the whole panel 90° on its desk stand (see services/ImuHardware.h), so
+// content drawn in the panel's native orientation displays sideways to the
+// viewer once it's turned. Tried counter-rotating the content in code to
+// compensate, but the direction proved hard to pin down reliably from
+// verbal feedback alone (real hardware testing cycled through 90° CW, 90°
+// CCW, and back without converging) — simpler and more reliable to upload
+// DND/BRB GIFs already rotated to look correct in their target physical
+// orientation, and just display them as-is.
+void playCurrentFrame(MatrixPanel_I2S_DMA* display, const char* path) {
     if (!display) return;
     if (g_loadedPath != path) {
         loadPath(path);
@@ -200,7 +185,7 @@ void playCurrentFrame(MatrixPanel_I2S_DMA* display, const char* path, bool rotat
     // Blit the whole canvas every frame (not just the pixels this frame's
     // gifDraw() touched) so the display always reflects the canvas exactly,
     // regardless of which physical buffer flipDMABuffer() is about to show.
-    blitCanvasRotated(display, rotate);
+    display->drawRGBBitmap(0, 0, g_canvas, kSize, kSize);
     display->flipDMABuffer();
     g_nextFrameDueMs = nowMs + (delayMs > 0 ? (unsigned long)delayMs : 100UL);
 }
@@ -219,7 +204,7 @@ bool loadScreensaverGif() {
 }
 
 void drawScreensaverFrame(MatrixPanel_I2S_DMA* display) {
-    playCurrentFrame(display, kScreensaverPath, /*rotate=*/false);
+    playCurrentFrame(display, kScreensaverPath);
 }
 
 bool dndGifExists() {
@@ -227,5 +212,5 @@ bool dndGifExists() {
 }
 
 void drawDndGifFrame(MatrixPanel_I2S_DMA* display) {
-    playCurrentFrame(display, kDndPath, /*rotate=*/true);
+    playCurrentFrame(display, kDndPath);
 }

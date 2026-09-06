@@ -26,6 +26,7 @@ private:
     void handleGetConfig();
     void handlePutConfig();
     void handlePostWifi();
+    void handleGetWifiScan();
     void handlePostAssetUpload();
     void handlePostAssetResponse();
     void handlePostScreensaverUpload();

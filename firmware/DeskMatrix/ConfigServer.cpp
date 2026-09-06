@@ -33,6 +33,9 @@ button:hover{background:#444}
 
 <section>
 <h2>Wi-Fi</h2>
+<button type="button" id="wifiScanBtn">Scan for networks</button>
+<div class="status" id="wifiScanStatus"></div>
+<select id="wifiNetworks" style="width:100%;padding:.5em;margin:.6em 0;box-sizing:border-box" hidden></select>
 <form id="wifiForm">
 <label>SSID</label><input type="text" id="wifiSsid" required>
 <label>Password</label><input type="password" id="wifiPass">
@@ -73,6 +76,28 @@ async function putConfig(cfg) {
 getConfig().then(cfg => {
   document.getElementById('brightness').value = cfg.brightness;
   document.getElementById('brightnessVal').textContent = cfg.brightness;
+});
+
+document.getElementById('wifiScanBtn').addEventListener('click', async () => {
+  const status = document.getElementById('wifiScanStatus');
+  const select = document.getElementById('wifiNetworks');
+  status.textContent = 'Scanning (a few seconds)...'; status.className = 'status';
+  select.hidden = true;
+  try {
+    const res = await fetch('/api/wifi/scan');
+    const body = await res.json();
+    if (!res.ok) { status.textContent = 'Scan failed'; status.className = 'status err'; return; }
+    const networks = body.networks || [];
+    if (networks.length === 0) { status.textContent = 'No networks found.'; status.className = 'status'; return; }
+    select.innerHTML = '<option value="">Select a network...</option>' + networks.map(n =>
+      `<option value="${n.ssid}">${n.ssid} (${n.rssi} dBm${n.secure ? '' : ', open'})</option>`).join('');
+    select.hidden = false;
+    status.textContent = `Found ${networks.length} network(s).`; status.className = 'status ok';
+  } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
+});
+
+document.getElementById('wifiNetworks').addEventListener('change', e => {
+  if (e.target.value) document.getElementById('wifiSsid').value = e.target.value;
 });
 
 document.getElementById('wifiForm').addEventListener('submit', async e => {
@@ -132,6 +157,7 @@ void ConfigServer::begin() {
     server_.on("/api/config", HTTP_GET, [this]() { handleGetConfig(); });
     server_.on("/api/config", HTTP_PUT, [this]() { handlePutConfig(); });
     server_.on("/api/wifi", HTTP_POST, [this]() { handlePostWifi(); });
+    server_.on("/api/wifi/scan", HTTP_GET, [this]() { handleGetWifiScan(); });
     server_.on("/api/assets", HTTP_POST,
         [this]() { handlePostAssetResponse(); },
         [this]() { handlePostAssetUpload(); });
@@ -206,6 +232,48 @@ void ConfigServer::handlePostWifi() {
     delay(200); // let the response flush before the network drops
     WiFi.disconnect();
     WiFi.begin(ssid.c_str(), password.c_str()); // persistent by default: also becomes the auto-connect target on next boot
+}
+
+void ConfigServer::handleGetWifiScan() {
+    if (!checkAuth()) return;
+    // Blocking (~2-4s) and briefly interrupts the STA connection — fine for
+    // an on-demand user action from the config page, same trade-off as the
+    // existing OTA endpoint. Doesn't drop the config API itself: handled
+    // synchronously within this one request/response, not backgrounded.
+    int count = WiFi.scanNetworks();
+
+    JsonDocument doc;
+    JsonArray networks = doc["networks"].to<JsonArray>();
+    if (count > 0) {
+        // Strongest-signal-first, de-duplicated by SSID (scanNetworks()
+        // can return the same network multiple times across channels/APs).
+        for (int i = 0; i < count; i++) {
+            String ssid = WiFi.SSID(i);
+            if (ssid.isEmpty()) continue;
+            bool alreadyListed = false;
+            for (JsonObject existing : networks) {
+                if (existing["ssid"] == ssid) {
+                    alreadyListed = true;
+                    if (WiFi.RSSI(i) > existing["rssi"].as<int>()) {
+                        existing["rssi"] = WiFi.RSSI(i);
+                        existing["secure"] = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
+                    }
+                    break;
+                }
+            }
+            if (!alreadyListed) {
+                JsonObject net = networks.add<JsonObject>();
+                net["ssid"] = ssid;
+                net["rssi"] = WiFi.RSSI(i);
+                net["secure"] = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
+            }
+        }
+    }
+    WiFi.scanDelete();
+
+    std::string out;
+    serializeJson(doc, out);
+    server_.send(200, "application/json", out.c_str());
 }
 
 void ConfigServer::handlePostAssetUpload() {
