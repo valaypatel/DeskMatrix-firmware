@@ -43,7 +43,11 @@ def exchange_code_for_refresh_token(client_id: str, client_secret: str, code: st
         "client_id": client_id,
         "client_secret": client_secret,
     }).encode()
-    req = urllib.request.Request("https://accounts.spotify.com/api/token", data=data)
+    req = urllib.request.Request(
+        "https://accounts.spotify.com/api/token",
+        data=data,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
     with urllib.request.urlopen(req) as resp:
         body = json.loads(resp.read())
     if "refresh_token" not in body:
