@@ -4,6 +4,7 @@
 #include "screens/ScreensaverScreen.h"
 #include <Update.h>
 #include <LittleFS.h>
+#include <cstring>
 
 ConfigServer::ConfigServer(AppConfig& appConfig, SettingsStore& store)
     : server_(80), appConfig_(appConfig), store_(store) {}
@@ -87,6 +88,12 @@ namespace {
 File g_screensaverTmpFile;
 bool g_screensaverHeaderChecked = false;
 bool g_screensaverHeaderValid = false;
+// The HTTP client's raw POST body can arrive in chunks smaller than the
+// 6-byte GIF signature (e.g. curl over a slow/segmented connection) —
+// accumulate here until there's enough to check, rather than judging the
+// header off whatever happened to be in the very first chunk.
+uint8_t g_screensaverHeaderBuf[6];
+size_t g_screensaverHeaderBufLen = 0;
 }  // namespace
 
 void ConfigServer::handlePostScreensaverUpload() {
@@ -97,11 +104,18 @@ void ConfigServer::handlePostScreensaverUpload() {
     if (raw.status == RAW_START) {
         g_screensaverHeaderChecked = false;
         g_screensaverHeaderValid = false;
+        g_screensaverHeaderBufLen = 0;
         g_screensaverTmpFile = LittleFS.open("/screensaver.gif.tmp", "w");
     } else if (raw.status == RAW_WRITE) {
         if (!g_screensaverHeaderChecked) {
-            g_screensaverHeaderValid = isValidGifHeader(raw.buf, raw.currentSize);
-            g_screensaverHeaderChecked = true;
+            size_t need = sizeof(g_screensaverHeaderBuf) - g_screensaverHeaderBufLen;
+            size_t take = raw.currentSize < need ? raw.currentSize : need;
+            memcpy(g_screensaverHeaderBuf + g_screensaverHeaderBufLen, raw.buf, take);
+            g_screensaverHeaderBufLen += take;
+            if (g_screensaverHeaderBufLen == sizeof(g_screensaverHeaderBuf)) {
+                g_screensaverHeaderValid = isValidGifHeader(g_screensaverHeaderBuf, g_screensaverHeaderBufLen);
+                g_screensaverHeaderChecked = true;
+            }
         }
         if (g_screensaverTmpFile) g_screensaverTmpFile.write(raw.buf, raw.currentSize);
     } else if (raw.status == RAW_END) {
