@@ -1,5 +1,6 @@
 // firmware/DeskMatrix/ConfigServer.cpp
 #include "web/ConfigServer.h"
+#include "GifValidation.h"
 #include <Update.h>
 #include <LittleFS.h>
 
@@ -12,6 +13,9 @@ void ConfigServer::begin() {
     server_.on("/api/assets", HTTP_POST,
         [this]() { handlePostAssetResponse(); },
         [this]() { handlePostAssetUpload(); });
+    server_.on("/api/screensaver", HTTP_POST,
+        [this]() { handlePostScreensaverResponse(); },
+        [this]() { handlePostScreensaverUpload(); });
     server_.on("/api/ota", HTTP_POST,
         [this]() {
             server_.send(200, "text/plain", Update.hasError() ? "FAIL" : "OK");
@@ -67,6 +71,44 @@ void ConfigServer::handlePostAssetUpload() {
 void ConfigServer::handlePostAssetResponse() {
     if (!server_.hasArg("id")) {
         server_.send(400, "text/plain", "missing ?id=");
+        return;
+    }
+    server_.send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
+namespace {
+File g_screensaverTmpFile;
+bool g_screensaverHeaderChecked = false;
+bool g_screensaverHeaderValid = false;
+}  // namespace
+
+void ConfigServer::handlePostScreensaverUpload() {
+    HTTPUpload& upload = server_.upload();
+
+    if (upload.status == UPLOAD_FILE_START) {
+        g_screensaverHeaderChecked = false;
+        g_screensaverHeaderValid = false;
+        g_screensaverTmpFile = LittleFS.open("/screensaver.gif.tmp", "w");
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+        if (!g_screensaverHeaderChecked) {
+            g_screensaverHeaderValid = isValidGifHeader(upload.buf, upload.currentSize);
+            g_screensaverHeaderChecked = true;
+        }
+        if (g_screensaverTmpFile) g_screensaverTmpFile.write(upload.buf, upload.currentSize);
+    } else if (upload.status == UPLOAD_FILE_END) {
+        if (g_screensaverTmpFile) g_screensaverTmpFile.close();
+        if (g_screensaverHeaderValid) {
+            if (LittleFS.exists("/screensaver.gif")) LittleFS.remove("/screensaver.gif");
+            LittleFS.rename("/screensaver.gif.tmp", "/screensaver.gif");
+        } else {
+            LittleFS.remove("/screensaver.gif.tmp"); // reject: previous screensaver (if any) stays active
+        }
+    }
+}
+
+void ConfigServer::handlePostScreensaverResponse() {
+    if (!g_screensaverHeaderValid) {
+        server_.send(400, "application/json", "{\"error\":\"not a valid GIF file\"}");
         return;
     }
     server_.send(200, "application/json", "{\"status\":\"ok\"}");

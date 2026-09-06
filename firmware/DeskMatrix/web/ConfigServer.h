@@ -20,6 +20,8 @@ private:
     void handlePutConfig();
     void handlePostAssetUpload();
     void handlePostAssetResponse();
+    void handlePostScreensaverUpload();
+    void handlePostScreensaverResponse();
     void handleOtaUpload();
 
     WebServer server_;
