@@ -182,17 +182,35 @@ void loop() {
   }
   lastMode = stateMachine.mode();
 
+  if (stateMachine.mode() == ScreenMode::DND) {
+    if ((nowMs - dndEnteredMs) < (unsigned long)IP_DISPLAY_SECONDS * 1000UL) {
+      // Static content: no need for a fixed tick, just avoid redundant
+      // redraws every single loop() iteration.
+      static unsigned long lastIpRenderMs = 0;
+      if ((nowMs - lastIpRenderMs) >= 1000) {
+        lastIpRenderMs = nowMs;
+        drawIpScreen(WiFi.localIP().toString());
+        dma_display->flipDMABuffer();
+      }
+    } else if (dndGifExists()) {
+      // Not gated by a fixed tick: the GIF paces and flips itself (see
+      // ScreensaverScreen.cpp), same reasoning as SCREENSAVER above.
+      drawDndGifFrame(dma_display);
+    } else {
+      static unsigned long lastDndRenderMs = 0;
+      if ((nowMs - lastDndRenderMs) >= 1000) {
+        lastDndRenderMs = nowMs;
+        drawDndScreen(dma_display);
+        dma_display->flipDMABuffer();
+      }
+    }
+    return;
+  }
+
   static unsigned long lastRenderMs = 0;
   if ((nowMs - lastRenderMs) >= 1000) {
     lastRenderMs = nowMs;
     switch (stateMachine.mode()) {
-      case ScreenMode::DND:
-        if ((nowMs - dndEnteredMs) < (unsigned long)IP_DISPLAY_SECONDS * 1000UL) {
-          drawIpScreen(WiFi.localIP().toString());
-        } else {
-          drawDndScreen(dma_display);
-        }
-        break;
       case ScreenMode::BRB:
         drawBrbScreen(dma_display);
         break;

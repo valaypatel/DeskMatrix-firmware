@@ -30,6 +30,8 @@ private:
     void handlePostAssetResponse();
     void handlePostScreensaverUpload();
     void handlePostScreensaverResponse();
+    void handlePostDndUpload();
+    void handlePostDndResponse();
     void handleOtaUpload();
 
     WebServer server_;

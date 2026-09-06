@@ -21,3 +21,18 @@ void unloadScreensaverGif();
 // the GIF's own frame rate rather than being throttled to once per second.
 // Flips the display buffer itself whenever it actually draws a frame.
 void drawScreensaverFrame(MatrixPanel_I2S_DMA* display);
+
+// True if a custom DND GIF (/dnd.gif) has been uploaded — callers use this
+// to decide between it and the plain colored DND fallback (drawDndScreen).
+bool dndGifExists();
+
+// Same contract as unloadScreensaverGif(), but for /dnd.gif. Must be
+// called before overwriting that file on flash.
+void unloadDndGif();
+
+// Same contract as drawScreensaverFrame(), but for /dnd.gif. Shares the
+// same underlying GIF decoder as the screensaver (reloading automatically
+// whenever the requested path changes) rather than using a second decoder
+// instance — Screensaver and DND are never the active screen at the same
+// time, so there's no need for, or RAM cost from, a separate one.
+void drawDndGifFrame(MatrixPanel_I2S_DMA* display);

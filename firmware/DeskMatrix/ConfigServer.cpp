@@ -45,8 +45,16 @@ button:hover{background:#444}
 <h2>Screensaver GIF</h2>
 <label>Upload a 64x64 GIF (replaces the current one)</label>
 <input type="file" id="gifFile" accept=".gif">
-<button id="gifUpload">Upload</button>
+<button data-url="/api/screensaver" data-input="gifFile" data-status="gifStatus">Upload</button>
 <div class="status" id="gifStatus"></div>
+</section>
+
+<section>
+<h2>DND Screen</h2>
+<label>Upload a 64x64 GIF shown when tilted left (after the IP display)</label>
+<input type="file" id="dndFile" accept=".gif">
+<button data-url="/api/dnd" data-input="dndFile" data-status="dndStatus">Upload</button>
+<div class="status" id="dndStatus"></div>
 </section>
 
 <section>
@@ -80,18 +88,21 @@ document.getElementById('wifiForm').addEventListener('submit', async e => {
   } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
 });
 
-document.getElementById('gifUpload').addEventListener('click', async () => {
-  const status = document.getElementById('gifStatus');
-  const file = document.getElementById('gifFile').files[0];
+async function uploadImage(url, inputId, statusId) {
+  const status = document.getElementById(statusId);
+  const file = document.getElementById(inputId).files[0];
   if (!file) { status.textContent = 'Choose a file first'; status.className = 'status err'; return; }
   status.textContent = 'Uploading...'; status.className = 'status';
   try {
-    const res = await fetch('/api/screensaver', {method:'POST', body: file});
+    const res = await fetch(url, {method:'POST', body: file});
     const body = await res.json();
-    if (res.ok) { status.textContent = 'Uploaded - now playing.'; status.className = 'status ok'; }
+    if (res.ok) { status.textContent = 'Uploaded.'; status.className = 'status ok'; }
     else { status.textContent = body.error || 'Failed'; status.className = 'status err'; }
   } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
-});
+}
+for (const btn of document.querySelectorAll('button[data-url]')) {
+  btn.addEventListener('click', () => uploadImage(btn.dataset.url, btn.dataset.input, btn.dataset.status));
+}
 
 let brightnessTimer;
 document.getElementById('brightness').addEventListener('input', e => {
@@ -127,6 +138,9 @@ void ConfigServer::begin() {
     server_.on("/api/screensaver", HTTP_POST,
         [this]() { handlePostScreensaverResponse(); },
         [this]() { handlePostScreensaverUpload(); });
+    server_.on("/api/dnd", HTTP_POST,
+        [this]() { handlePostDndResponse(); },
+        [this]() { handlePostDndUpload(); });
     server_.on("/api/ota", HTTP_POST,
         [this]() {
             if (!checkAuth()) return;
@@ -280,6 +294,61 @@ void ConfigServer::handlePostScreensaverUpload() {
 void ConfigServer::handlePostScreensaverResponse() {
     if (!checkAuth()) return;
     if (!g_screensaverHeaderValid) {
+        server_.send(400, "application/json", "{\"error\":\"not a valid GIF file\"}");
+        return;
+    }
+    server_.send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
+namespace {
+File g_dndTmpFile;
+bool g_dndHeaderChecked = false;
+bool g_dndHeaderValid = false;
+uint8_t g_dndHeaderBuf[6];
+size_t g_dndHeaderBufLen = 0;
+}  // namespace
+
+// Mirrors handlePostScreensaverUpload()/handlePostScreensaverResponse()
+// exactly, targeting /dnd.gif instead — GIF-only (no JPEG support, unlike
+// the reverted "custom image" attempt), so this adds no decoder RAM cost;
+// ScreensaverScreen.cpp's shared GIF decoder picks up the new file lazily
+// the next time DND is the active screen (see unloadDndGif()'s comment).
+void ConfigServer::handlePostDndUpload() {
+    if (!checkAuth()) return;
+    HTTPRaw& raw = server_.raw();
+
+    if (raw.status == RAW_START) {
+        g_dndHeaderChecked = false;
+        g_dndHeaderValid = false;
+        g_dndHeaderBufLen = 0;
+        g_dndTmpFile = LittleFS.open("/dnd.gif.tmp", "w");
+    } else if (raw.status == RAW_WRITE) {
+        if (!g_dndHeaderChecked) {
+            size_t need = sizeof(g_dndHeaderBuf) - g_dndHeaderBufLen;
+            size_t take = raw.currentSize < need ? raw.currentSize : need;
+            memcpy(g_dndHeaderBuf + g_dndHeaderBufLen, raw.buf, take);
+            g_dndHeaderBufLen += take;
+            if (g_dndHeaderBufLen == sizeof(g_dndHeaderBuf)) {
+                g_dndHeaderValid = isValidGifHeader(g_dndHeaderBuf, g_dndHeaderBufLen);
+                g_dndHeaderChecked = true;
+            }
+        }
+        if (g_dndTmpFile) g_dndTmpFile.write(raw.buf, raw.currentSize);
+    } else if (raw.status == RAW_END) {
+        if (g_dndTmpFile) g_dndTmpFile.close();
+        if (g_dndHeaderValid) {
+            unloadDndGif(); // release the shared decoder's hold on /dnd.gif before overwriting it
+            if (LittleFS.exists("/dnd.gif")) LittleFS.remove("/dnd.gif");
+            LittleFS.rename("/dnd.gif.tmp", "/dnd.gif");
+        } else {
+            LittleFS.remove("/dnd.gif.tmp"); // reject: previous DND gif (if any) stays active
+        }
+    }
+}
+
+void ConfigServer::handlePostDndResponse() {
+    if (!checkAuth()) return;
+    if (!g_dndHeaderValid) {
         server_.send(400, "application/json", "{\"error\":\"not a valid GIF file\"}");
         return;
     }
