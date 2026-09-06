@@ -4,7 +4,6 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <SpotifyArduino.h>
-#include <SpotifyArduinoCert.h>
 
 namespace {
 // SpotifyArduino's getCurrentlyPlaying callback is a plain function pointer
@@ -57,16 +56,29 @@ void SpotifyService::poll() {
     static WiFiClientSecure client;
     static SpotifyArduino* spotify = nullptr;
     static std::string lastClientId, lastRefreshToken;
+    static bool lastRefreshOk = false;
 
     // Re-create the SpotifyArduino instance whenever credentials actually
     // change (including the first call) — the library takes them by pointer
-    // at construction, so it can't be reconfigured in place.
-    if (!spotify || lastClientId != clientId_ || lastRefreshToken != refreshToken_) {
+    // at construction, so it can't be reconfigured in place. Also retry
+    // whenever the last refresh attempt failed (e.g. the very first poll
+    // can hit this before NTP has finished syncing, which breaks TLS
+    // certificate-date validation) — otherwise a single transient failure
+    // permanently poisons the session with an empty bearer token, since
+    // nothing else here would ever trigger a retry.
+    if (!spotify || lastClientId != clientId_ || lastRefreshToken != refreshToken_ || !lastRefreshOk) {
         delete spotify;
-        client.setCACert(spotify_server_cert);
+        // The vendored SpotifyArduinoCert.h root cert no longer validates
+        // against Spotify's current TLS chain (confirmed on real hardware:
+        // every connect() with setCACert() failed for accounts.spotify.com
+        // and api.spotify.com; switching to setInsecure() fixed both
+        // immediately). Traffic stays encrypted; only server identity
+        // verification is skipped. Accepted trade-off — see project notes.
+        client.setInsecure();
         spotify = new SpotifyArduino(client, clientId_.c_str(), clientSecret_.c_str(), refreshToken_.c_str());
-        if (!spotify->refreshAccessToken()) {
-            Serial.println("[spotify] failed to refresh access token");
+        lastRefreshOk = spotify->refreshAccessToken();
+        if (!lastRefreshOk) {
+            Serial.println("[spotify] failed to refresh access token, will retry next poll");
         }
         lastClientId = clientId_;
         lastRefreshToken = refreshToken_;
