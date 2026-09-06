@@ -1,6 +1,7 @@
 // firmware/DeskMatrix/ConfigServer.cpp
 #include "web/ConfigServer.h"
 #include "GifValidation.h"
+#include "screens/ScreensaverScreen.h"
 #include <Update.h>
 #include <LittleFS.h>
 
@@ -108,6 +109,7 @@ void ConfigServer::handlePostScreensaverUpload() {
         if (g_screensaverHeaderValid) {
             if (LittleFS.exists("/screensaver.gif")) LittleFS.remove("/screensaver.gif");
             LittleFS.rename("/screensaver.gif.tmp", "/screensaver.gif");
+            loadScreensaverGif(); // pick up the newly-uploaded GIF immediately, without a reboot
         } else {
             LittleFS.remove("/screensaver.gif.tmp"); // reject: previous screensaver (if any) stays active
         }
