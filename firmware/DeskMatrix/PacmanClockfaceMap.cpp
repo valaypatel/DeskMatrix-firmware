@@ -27,8 +27,9 @@ void PacmanClockface::turnRandom() {
     MapBlock nextBlk = nextBlock(tryDir);
     if (contains(nextBlk, PACMAN_MOVING_BLOCKS) && canMove(pacman->getX(), pacman->getY(), tryDir)) {
       pacman->turn(tryDir);
-      Serial.print("New direction: ");
-      Serial.println(pacman->_direction);
+      // No Serial print here: fires on every direction change during
+      // normal play, and this board's native USB CDC blocks on Serial
+      // writes when nothing has the port open (see MarioBlock.cpp).
       return;
     }
   }

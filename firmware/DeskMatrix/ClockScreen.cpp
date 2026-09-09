@@ -13,6 +13,8 @@
 #include "screens/clockfaces/words/Clockface.h"
 #include "screens/clockfaces/pacman/Clockface.h"
 
+#include "config.h"
+
 // The single display instance owned by DeskMatrix.ino (see initPanel()) —
 // referenced directly here the same way ConfigServer.cpp references
 // `extern WiFiManager wm;`. loadClockFace() needs a display pointer to hand
@@ -31,6 +33,19 @@ bool g_dateTimeStarted = false;
 
 IClockface* g_activeClockface = nullptr;
 std::string g_activeName;
+
+// Ported clockfaces draw incrementally (e.g. Mario's Block only redraws
+// the digits when they change) — correct for a single persistent
+// framebuffer, but wrong against this panel's true double buffering
+// (mxconfig.double_buff = true, see initPanel()): flipDMABuffer()
+// alternates between two distinct physical buffers, so partial draws
+// straight to dma_display leave each buffer with a different, stale
+// mix of past frames — visible as flashing/incorrect rendering (found
+// on real hardware). Fixed the same way ScreensaverScreen.cpp's GIF
+// playback handles delta-encoded frames: draw onto one persistent
+// off-screen canvas, then blit the *entire* canvas into whichever
+// physical buffer is currently being flipped to, every frame.
+GFXcanvas16 g_canvas(PANEL_RES_X, PANEL_RES_Y);
 }  // namespace
 
 void loadClockFace(const std::string& name) {
@@ -47,13 +62,16 @@ void loadClockFace(const std::string& name) {
 
   if (dma_display == nullptr) return; // called before initPanel(); caller error — bail safely, retried on next drawClockFrame()
 
+  // Clockfaces draw onto the persistent canvas, not dma_display directly —
+  // see g_canvas's comment above.
   if (resolved == "words") {
-    g_activeClockface = new WordsClockface(dma_display);
+    g_activeClockface = new WordsClockface(&g_canvas);
   } else if (resolved == "pacman") {
-    g_activeClockface = new PacmanClockface(dma_display);
+    g_activeClockface = new PacmanClockface(&g_canvas);
   } else {
-    g_activeClockface = new MarioClockface(dma_display);
+    g_activeClockface = new MarioClockface(&g_canvas);
   }
+  g_canvas.fillScreen(0);
   g_activeClockface->setup(&g_dateTime);
   g_activeName = resolved;
 }
@@ -67,5 +85,9 @@ void drawClockFrame(MatrixPanel_I2S_DMA* display) {
     if (g_activeClockface == nullptr) return;
   }
   g_activeClockface->update();
+  // Blit the whole canvas into whichever physical buffer is about to
+  // become visible, so both buffers always show a complete, current
+  // frame regardless of double-buffer ping-pong parity.
+  display->drawRGBBitmap(0, 0, g_canvas.getBuffer(), PANEL_RES_X, PANEL_RES_Y);
   display->flipDMABuffer();
 }

@@ -141,7 +141,7 @@ void setup() {
   Serial.print("Config API ready at http://");
   Serial.println(WiFi.localIP());
 
-  configTime(TIMEZONE_OFFSET_SEC, 0, "pool.ntp.org");
+  configTime(appConfig.timezoneOffsetMinutes * 60, 0, "pool.ntp.org");
 }
 
 void loop() {
@@ -172,6 +172,7 @@ void loop() {
                                appConfig.spotify.refreshToken, appConfig.spotify.pollSec);
     dma_display->setBrightness8(appConfig.brightness);
     loadClockFace(appConfig.clockFace); // no-op if unchanged (see ClockScreen.cpp)
+    configTime(appConfig.timezoneOffsetMinutes * 60, 0, "pool.ntp.org"); // safe to re-call; applies immediately, no reboot needed
   }
 
   spotifyService->loop(); // polls continuously regardless of current mode, so a mode switch happens promptly
@@ -246,9 +247,20 @@ void loop() {
         showingGifInterlude = true;
         gifLoopsPlayed = 0;
       } else {
-        // Not gated by any fixed tick: each clockface paces its own
-        // animation off its own millis() bookkeeping (see ClockScreen.cpp).
-        drawClockFrame(dma_display);
+        // Gated to ~30fps (33ms) — unlike GIF/Spotify playback, which pace
+        // themselves and are naturally sparse, drawClockFrame() redraws and
+        // flips unconditionally every call. Without this gate it was being
+        // called on every single uncapped loop() iteration (thousands/sec),
+        // constantly re-blitting the full 64x64 canvas and flipping the
+        // display buffer — needless DMA/CPU load that starved the rest of
+        // loop() and showed up as visible stutter during Mario's jump
+        // (confirmed on real hardware). 33ms keeps up fine with the
+        // clockfaces' own ~50ms animation steps (see MarioSprite.cpp).
+        static unsigned long lastClockRenderMs = 0;
+        if ((nowMs - lastClockRenderMs) >= 33) {
+          lastClockRenderMs = nowMs;
+          drawClockFrame(dma_display);
+        }
         return;
       }
     }

@@ -101,7 +101,10 @@ void Block::execute(EventType event, Sprite* caller) {
 
   if (event == EventType::MOVE) {
     if (this->collidedWith(caller)) {
-      Serial.println("Collision detected");
+      // No Serial.println here: this board's native USB CDC blocks on
+      // Serial writes when nothing has the port open, and this fires on
+      // every jump — was the actual cause of the reported jump lag (same
+      // failure mode as the earlier HTTP-slowness bug in this project).
       hit();
       Locator::getEventBus()->broadcast(EventType::COLLISION, this);
     }

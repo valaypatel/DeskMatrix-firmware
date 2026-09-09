@@ -15,6 +15,7 @@ struct AppConfig {
     std::string brbArt = "brb_default";
     std::string clockFace = "mario"; // "mario" | "words" | "pacman" — idle-screen clockface preset
     int brightness = 90; // 0-255, passed directly to MatrixPanel_I2S_DMA::setBrightness8()
+    int timezoneOffsetMinutes = 0; // UTC offset, e.g. 330 for IST (+05:30); passed to configTime()
 };
 
 // Returns true and fills `out` on success; returns false and fills `error` on failure.

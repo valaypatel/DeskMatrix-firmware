@@ -14,9 +14,9 @@
 #define CONFIG_AUTH_USER "admin"
 #define CONFIG_AUTH_PASS "CHANGE_ME_IN_SECRETS_H"
 
-// MVP simplification: fixed UTC offset rather than full timezone database.
-// Change to your local offset in seconds (e.g. -18000 for US Eastern).
-#define TIMEZONE_OFFSET_SEC 0
+// Timezone is now configurable live from the config page (AppConfig.
+// timezoneOffsetMinutes, see ConfigModel.h) rather than a fixed build-time
+// offset.
 
 // Set to 1 once the axis is calibrated to re-enable tilt-triggered DND/BRB.
 #define ENABLE_IMU_TILT 1
