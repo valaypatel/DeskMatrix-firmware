@@ -5,6 +5,7 @@
 #include "ConfigModel.h"
 #include "SettingsStore.h"
 #include "screens/ScreensaverScreen.h"
+#include "screens/ClockScreen.h"
 #include "services/SpotifyService.h"
 #include "screens/SpotifyScreen.h"
 #include "ScreenStateMachine.h"
@@ -127,6 +128,7 @@ void setup() {
   dma_display->setBrightness8(appConfig.brightness); // initPanel()'s 90 was just a pre-config-load placeholder
 
   loadScreensaverGif(); // ok if this returns false: screensaver just shows blank until one is uploaded
+  loadClockFace(appConfig.clockFace); // idle-screen clock, shown by default (see loop()'s SCREENSAVER-mode block)
   spotifyService = new SpotifyService(appConfig.spotify.clientId, appConfig.spotify.clientSecret,
                                        appConfig.spotify.refreshToken, appConfig.spotify.pollSec);
 
@@ -169,6 +171,7 @@ void loop() {
     spotifyService->configure(appConfig.spotify.clientId, appConfig.spotify.clientSecret,
                                appConfig.spotify.refreshToken, appConfig.spotify.pollSec);
     dma_display->setBrightness8(appConfig.brightness);
+    loadClockFace(appConfig.clockFace); // no-op if unchanged (see ClockScreen.cpp)
   }
 
   spotifyService->loop(); // polls continuously regardless of current mode, so a mode switch happens promptly
@@ -225,10 +228,41 @@ void loop() {
   }
 #endif
 
+  // Idle content: the Mario/Words/Pacman clock (see screens/ClockScreen.*)
+  // is the default idle screen; the GIF screensaver now only interrupts it
+  // periodically as a brief interlude, rather than playing continuously.
+  // Both live inside this SCREENSAVER branch (not a new ScreenMode) so the
+  // Spotify/DND/BRB/Takeover priority guards elsewhere, which all key off
+  // `mode_ == ScreenMode::SCREENSAVER`, stay untouched.
+  constexpr unsigned long kClockGifIntervalMs = 5UL * 60UL * 1000UL; // 5 min
+  constexpr int kClockGifLoops = 10;
+  static bool showingGifInterlude = false;
+  static unsigned long clockShownSinceMs = nowMs;
+  static int gifLoopsPlayed = 0;
+
   if (stateMachine.mode() == ScreenMode::SCREENSAVER) {
-    // Not gated by any fixed tick: GIF playback paces itself off each
-    // frame's own display duration (see ScreensaverScreen.cpp).
+    if (!showingGifInterlude) {
+      if ((nowMs - clockShownSinceMs) >= kClockGifIntervalMs) {
+        showingGifInterlude = true;
+        gifLoopsPlayed = 0;
+      } else {
+        // Not gated by any fixed tick: each clockface paces its own
+        // animation off its own millis() bookkeeping (see ClockScreen.cpp).
+        drawClockFrame(dma_display);
+        return;
+      }
+    }
+    // showingGifInterlude: not gated by any fixed tick either, same
+    // reasoning as before — GIF playback paces itself off each frame's own
+    // display duration (see ScreensaverScreen.cpp).
     drawScreensaverFrame(dma_display);
+    if (screensaverGifLoopCompleted()) {
+      gifLoopsPlayed++;
+      if (gifLoopsPlayed >= kClockGifLoops) {
+        showingGifInterlude = false;
+        clockShownSinceMs = nowMs;
+      }
+    }
     return;
   }
 

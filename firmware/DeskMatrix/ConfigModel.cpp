@@ -18,6 +18,7 @@ bool parseConfig(const std::string& json, AppConfig& out, std::string& error) {
 
     out.dndArt = std::string(doc["dnd"]["art"] | "dnd_default");
     out.brbArt = std::string(doc["brb"]["art"] | "brb_default");
+    out.clockFace = std::string(doc["clockFace"] | "mario");
 
     int brightness = doc["brightness"] | 90;
     if (brightness < 0) brightness = 0;
@@ -38,6 +39,7 @@ std::string serializeConfig(const AppConfig& config) {
 
     doc["dnd"]["art"] = config.dndArt;
     doc["brb"]["art"] = config.brbArt;
+    doc["clockFace"] = config.clockFace;
     doc["brightness"] = config.brightness;
 
     std::string out;

@@ -13,6 +13,7 @@ struct AppConfig {
     SpotifyConfig spotify;
     std::string dndArt = "dnd_default";
     std::string brbArt = "brb_default";
+    std::string clockFace = "mario"; // "mario" | "words" | "pacman" — idle-screen clockface preset
     int brightness = 90; // 0-255, passed directly to MatrixPanel_I2S_DMA::setBrightness8()
 };
 

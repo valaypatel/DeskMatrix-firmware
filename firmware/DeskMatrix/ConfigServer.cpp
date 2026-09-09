@@ -71,6 +71,17 @@ button:hover{background:#444}
 </section>
 
 <section>
+<h2>Clock face</h2>
+<label>Idle-screen clock (shown between screensaver GIF interludes)</label>
+<select id="clockFace" style="width:100%;padding:.5em;margin-bottom:.4em;box-sizing:border-box">
+<option value="mario">Mario</option>
+<option value="words">Words</option>
+<option value="pacman">Pacman</option>
+</select>
+<div class="status" id="clockFaceStatus"></div>
+</section>
+
+<section>
 <h2>Brightness</h2>
 <label>Panel brightness (<span id="brightnessVal">-</span> / 255)</label>
 <input type="range" id="brightness" min="0" max="255">
@@ -93,6 +104,19 @@ async function putConfig(cfg) {
 getConfig().then(cfg => {
   document.getElementById('brightness').value = cfg.brightness;
   document.getElementById('brightnessVal').textContent = cfg.brightness;
+  document.getElementById('clockFace').value = cfg.clockFace || 'mario';
+});
+
+document.getElementById('clockFace').addEventListener('change', async e => {
+  const status = document.getElementById('clockFaceStatus');
+  status.textContent = 'Saving...'; status.className = 'status';
+  try {
+    const cfg = await getConfig();
+    cfg.clockFace = e.target.value;
+    const res = await putConfig(cfg);
+    status.textContent = res.ok ? 'Saved.' : 'Failed to save.';
+    status.className = res.ok ? 'status ok' : 'status err';
+  } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
 });
 
 document.getElementById('wifiScanBtn').addEventListener('click', async () => {
