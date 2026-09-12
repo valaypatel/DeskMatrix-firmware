@@ -249,13 +249,23 @@ python3 -m pytest
 3. Update `serializeConfig()` in `ConfigModel.cpp`
 4. Update config page HTML in `ConfigServer.cpp`
 
+## Credits & Inspiration
+
+This project builds on the excellent work of:
+
+- **[Clockwise](https://github.com/jnthas/clockwise)** by jnthas — The animated clock face engine and preset themes (Mario, Words, Pokedex, Nyan Cat, etc.) are ported from Clockwise's modular clockface system. The JSON theme engine and rendering pipeline are inspired by Clockwise's architecture.
+
+- **[Spotify Matrix](https://github.com/tnarla/spotify-matrix)** by tnarla — The Spotify integration, album art display, and spinning vinyl record animation are adapted from this project's elegant implementation.
+
+- **[ESP32-HUB75-MatrixPanel-I2S-DMA](https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-I2S-DMA)** — The DMA-based display driver that makes high-refresh-rate animation possible.
+
 ## License
 
 MIT License
 
 ## Contributing
 
-This is a personal project. Feel free to fork and adapt for your own desk display!
+This is a personal project. Feel free to fork and adapt for your own desk display! Contributions welcome.
 
 ---
 
