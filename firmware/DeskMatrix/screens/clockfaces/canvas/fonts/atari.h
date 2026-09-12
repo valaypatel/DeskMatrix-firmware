@@ -1,3 +1,7 @@
+#pragma once
+#ifndef ATARI_H_INCLUDED
+#define ATARI_H_INCLUDED
+
 #include <Arduino.h>
 #include <gfxfont.h>
 const uint8_t atariFontBitmaps[] PROGMEM = {
@@ -116,3 +120,5 @@ const GFXfont atariFont PROGMEM = {
   (GFXglyph *)atariFontGlyphs, 0x20, 0x7E,   11 };
 
 // Approx. 1268 bytes
+
+#endif  // ATARI_H_INCLUDED

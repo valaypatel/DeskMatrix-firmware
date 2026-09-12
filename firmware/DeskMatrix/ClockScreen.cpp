@@ -42,6 +42,9 @@ bool g_dateTimeStarted = false;
 
 IClockface* g_activeClockface = nullptr;
 std::string g_activeName;
+// Tracks which canvasJson content is currently loaded, so an edited-and-
+// resaved custom theme actually reloads (see loadClockFace's early-return).
+std::string g_activeCanvasJson;
 
 // Ported clockfaces draw incrementally (e.g. Mario's Block only redraws
 // the digits when they change) — correct for a single persistent
@@ -63,7 +66,8 @@ void loadClockFace(const std::string& name) {
       resolved != "nyancat" && resolved != "starwars") {
     resolved = "mario";
   }
-  if (g_activeClockface != nullptr && resolved == g_activeName) return; // already active: no-op
+  bool canvasContentChanged = (resolved == "canvas" && appConfig.canvasJson != g_activeCanvasJson);
+  if (g_activeClockface != nullptr && resolved == g_activeName && !canvasContentChanged) return; // already active with the same content: no-op
 
   if (!g_dateTimeStarted) {
     g_dateTime.begin("", true);
@@ -82,20 +86,21 @@ void loadClockFace(const std::string& name) {
     g_activeClockface = new WordsClockface(&g_canvas);
   } else if (resolved == "pacman") {
     g_activeClockface = new PacmanClockface(&g_canvas);
-  } else if (resolved == "nyancat") {
-    g_activeClockface = new CanvasClockface(&g_canvas, kNyanCatJson);
-  } else if (resolved == "starwars") {
-    g_activeClockface = new CanvasClockface(&g_canvas, kStarWarsJson);
-  } else if (resolved == "canvas") {
-    auto* canvasFace = new CanvasClockface(&g_canvas, appConfig.canvasJson.c_str());
+  } else if (resolved == "nyancat" || resolved == "starwars" || resolved == "canvas") {
+    const char* json = kNyanCatJson;
+    if (resolved == "starwars") json = kStarWarsJson;
+    else if (resolved == "canvas") json = appConfig.canvasJson.c_str();
+
+    auto* canvasFace = new CanvasClockface(&g_canvas, json);
     if (!canvasFace->isValid()) {
-      // Malformed/empty pasted theme: fall back to Mario rather than a
-      // blank/corrupt screen.
+      // Malformed/empty theme (custom-pasted, or in principle a future
+      // preset typo): fall back to Mario rather than a blank/corrupt screen.
       delete canvasFace;
       g_activeClockface = new MarioClockface(&g_canvas);
       resolved = "mario";
     } else {
       g_activeClockface = canvasFace;
+      if (resolved == "canvas") g_activeCanvasJson = appConfig.canvasJson;
     }
   } else {
     g_activeClockface = new MarioClockface(&g_canvas);

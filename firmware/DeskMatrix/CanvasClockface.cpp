@@ -27,12 +27,17 @@ uint16_t g_pngDecodeDstH = 0;
 int pngDrawCallback(PNGDRAW* pDraw) {
     uint16_t line[64];
     g_png.getLineAsRGB565(pDraw, line, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
+    // Defense in depth on top of the width/height guards at both call sites
+    // (loadSpriteFrame/renderImageElement already reject w > 64 before
+    // decoding) -- never let iWidth overrun the 64-wide stack buffer above.
+    int width = pDraw->iWidth;
+    if (width > 64) width = 64;
     if (g_pngDrawDirect) {
         if (g_pngDrawTarget != nullptr) {
-            g_pngDrawTarget->drawRGBBitmap(g_pngDrawX, g_pngDrawY + pDraw->y, line, pDraw->iWidth, 1);
+            g_pngDrawTarget->drawRGBBitmap(g_pngDrawX, g_pngDrawY + pDraw->y, line, width, 1);
         }
     } else if (g_pngDecodeDst != nullptr && pDraw->y < g_pngDecodeDstH) {
-        memcpy(g_pngDecodeDst + (size_t)pDraw->y * g_pngDecodeDstW * 2, line, (size_t)pDraw->iWidth * 2);
+        memcpy(g_pngDecodeDst + (size_t)pDraw->y * g_pngDecodeDstW * 2, line, (size_t)width * 2);
     }
     return 1;
 }
@@ -45,11 +50,15 @@ bool base64DecodeGuarded(const std::string& base64, std::vector<uint8_t>& outRaw
     // Probe call: dst=nullptr always reports MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL
     // and sets neededLen -- that "failure" is expected and intentionally ignored.
     mbedtls_base64_decode(nullptr, 0, &neededLen, (const unsigned char*)base64.data(), base64.size());
-    if (neededLen == 0 || neededLen > 8192) return false;
+    if (neededLen == 0 || neededLen > 8192) {
+        Serial.printf("[canvas] base64 decode rejected: implausible size (%u bytes)\n", (unsigned)neededLen);
+        return false;
+    }
     outRaw.resize(neededLen);
     size_t actualLen = 0;
     if (mbedtls_base64_decode(outRaw.data(), outRaw.size(), &actualLen,
                                (const unsigned char*)base64.data(), base64.size()) != 0) {
+        Serial.println("[canvas] base64 decode failed");
         return false;
     }
     outRaw.resize(actualLen);
@@ -60,6 +69,7 @@ bool base64DecodeGuarded(const std::string& base64, std::vector<uint8_t>& outRaw
 CanvasClockface::CanvasClockface(Adafruit_GFX* display, const char* themeJson) : display_(display) {
     JsonDocument doc;
     if (deserializeJson(doc, themeJson)) {
+        Serial.println("[canvas] theme JSON parse failed");
         valid_ = false;
         return;
     }
@@ -70,36 +80,11 @@ CanvasClockface::CanvasClockface(Adafruit_GFX* display, const char* themeJson) :
     delayMs_ = (uint16_t)delay;
 
     for (JsonVariantConst item : doc["setup"].as<JsonArrayConst>()) {
-        const char* type = item["type"] | "";
         SetupElement el;
-        el.x = item["x"] | 0;
-        el.y = item["y"] | 0;
-        el.x1 = item["x1"] | 0;
-        el.y1 = item["y1"] | 0;
-        el.width = item["width"] | 0;
-        el.height = item["height"] | 0;
-        el.color = item["color"] | 0;
-        el.fgColor = item["fgColor"] | 0xFFFF;
-        el.bgColor = item["bgColor"] | 0;
-        el.font = std::string(item["font"] | "");
-
-        if (strcmp(type, "rect") == 0) {
-            el.type = SetupElement::RECT;
-        } else if (strcmp(type, "fillrect") == 0) {
-            el.type = SetupElement::FILLRECT;
-        } else if (strcmp(type, "line") == 0) {
-            el.type = SetupElement::LINE;
-        } else if (strcmp(type, "text") == 0) {
-            el.type = SetupElement::TEXT;
-            el.content = std::string(item["content"] | "");
-        } else if (strcmp(type, "datetime") == 0) {
-            el.type = SetupElement::DATETIME;
-            el.content = std::string(item["content"] | "H:i");
-        } else if (strcmp(type, "image") == 0) {
-            el.type = SetupElement::IMAGE;
-            el.content = std::string(item["image"] | "");
-        } else {
-            continue;  // unrecognized element type: skip, don't crash
+        if (!parseSetupElement(item, el)) {
+            const char* type = item["type"] | "";
+            Serial.printf("[canvas] unrecognized setup element type: %s\n", type);
+            continue;
         }
         setupElements_.push_back(el);
     }
@@ -130,15 +115,65 @@ CanvasClockface::CanvasClockface(Adafruit_GFX* display, const char* themeJson) :
 
     for (JsonVariantConst item : doc["loop"].as<JsonArrayConst>()) {
         const char* type = item["type"] | "";
-        if (strcmp(type, "sprite") != 0) continue;
-        LoopSprite ls;
-        ls.spriteIndex = item["sprite"] | -1;
-        ls.x = item["x"] | 0;
-        ls.y = item["y"] | 0;
-        loopSprites_.push_back(ls);
+        if (strcmp(type, "sprite") == 0) {
+            LoopSprite ls;
+            ls.spriteIndex = item["sprite"] | -1;
+            ls.x = item["x"] | 0;
+            ls.y = item["y"] | 0;
+            loopSprites_.push_back(ls);
+            continue;
+        }
+        SetupElement el;
+        if (!parseSetupElement(item, el)) {
+            Serial.printf("[canvas] unrecognized loop element type: %s\n", type);
+            continue;
+        }
+        if (el.type == SetupElement::DATETIME) {
+            // renderDatetimeElements() already redraws every DATETIME
+            // element out of setupElements_ on its own 1s cadence -- route
+            // a datetime found in loop[] through that same path instead of
+            // creating a second redraw path for it.
+            setupElements_.push_back(el);
+        } else {
+            loopElements_.push_back(el);
+        }
     }
 
     valid_ = true;
+}
+
+bool CanvasClockface::parseSetupElement(JsonVariantConst item, SetupElement& outEl) {
+    const char* type = item["type"] | "";
+    outEl.x = item["x"] | 0;
+    outEl.y = item["y"] | 0;
+    outEl.x1 = item["x1"] | 0;
+    outEl.y1 = item["y1"] | 0;
+    outEl.width = item["width"] | 0;
+    outEl.height = item["height"] | 0;
+    outEl.color = item["color"] | 0;
+    outEl.fgColor = item["fgColor"] | 0xFFFF;
+    outEl.bgColor = item["bgColor"] | 0;
+    outEl.font = std::string(item["font"] | "");
+
+    if (strcmp(type, "rect") == 0) {
+        outEl.type = SetupElement::RECT;
+    } else if (strcmp(type, "fillrect") == 0) {
+        outEl.type = SetupElement::FILLRECT;
+    } else if (strcmp(type, "line") == 0) {
+        outEl.type = SetupElement::LINE;
+    } else if (strcmp(type, "text") == 0) {
+        outEl.type = SetupElement::TEXT;
+        outEl.content = std::string(item["content"] | "");
+    } else if (strcmp(type, "datetime") == 0) {
+        outEl.type = SetupElement::DATETIME;
+        outEl.content = std::string(item["content"] | "H:i");
+    } else if (strcmp(type, "image") == 0) {
+        outEl.type = SetupElement::IMAGE;
+        outEl.content = std::string(item["image"] | "");
+    } else {
+        return false;  // unrecognized element type
+    }
+    return true;
 }
 
 CanvasClockface::~CanvasClockface() {
@@ -153,16 +188,21 @@ bool CanvasClockface::loadSpriteFrame(const std::string& base64, SpriteFrame& ou
     std::vector<uint8_t> raw;
     if (!base64DecodeGuarded(base64, raw)) return false;
 
-    if (g_png.openRAM(raw.data(), (int)raw.size(), pngDrawCallback) != PNG_SUCCESS) return false;
+    if (g_png.openRAM(raw.data(), (int)raw.size(), pngDrawCallback) != PNG_SUCCESS) {
+        Serial.println("[canvas] sprite PNG open failed");
+        return false;
+    }
     int w = g_png.getWidth();
     int h = g_png.getHeight();
     if (w <= 0 || h <= 0 || w > 64 || h > 64) {
+        Serial.printf("[canvas] sprite dimensions out of range: %dx%d\n", w, h);
         g_png.close();
         return false;
     }
 
     uint16_t* pixels = (uint16_t*)heap_caps_malloc((size_t)w * h * 2, MALLOC_CAP_SPIRAM);
     if (pixels == nullptr) {
+        Serial.println("[canvas] sprite PSRAM allocation failed");
         g_png.close();
         return false;
     }
@@ -174,6 +214,7 @@ bool CanvasClockface::loadSpriteFrame(const std::string& base64, SpriteFrame& ou
     bool ok = (g_png.decode(nullptr, 0) == PNG_SUCCESS);
     g_png.close();
     if (!ok) {
+        Serial.println("[canvas] sprite PNG decode failed");
         heap_caps_free(pixels);
         return false;
     }
@@ -228,10 +269,14 @@ void CanvasClockface::renderText(const std::string& text, const SetupElement& el
 void CanvasClockface::renderImageElement(const SetupElement& el) {
     std::vector<uint8_t> raw;
     if (!base64DecodeGuarded(el.content, raw)) return;
-    if (g_png.openRAM(raw.data(), (int)raw.size(), pngDrawCallback) != PNG_SUCCESS) return;
+    if (g_png.openRAM(raw.data(), (int)raw.size(), pngDrawCallback) != PNG_SUCCESS) {
+        Serial.println("[canvas] image PNG open failed");
+        return;
+    }
     int w = g_png.getWidth();
     int h = g_png.getHeight();
     if (w <= 0 || h <= 0 || w > 64 || h > 64) {
+        Serial.printf("[canvas] image dimensions out of range: %dx%d\n", w, h);
         g_png.close();
         return;
     }
@@ -295,6 +340,23 @@ void CanvasClockface::update() {
                 display_->drawRGBBitmap(ls.x, ls.y, frame.pixels, frame.width, frame.height);
             }
             if (frames.size() > 1) ls.currentFrame = (ls.currentFrame + 1) % frames.size();
+        }
+        for (const auto& el : loopElements_) {
+            switch (el.type) {
+                case SetupElement::RECT:
+                case SetupElement::FILLRECT:
+                case SetupElement::LINE:
+                    renderShape(el);
+                    break;
+                case SetupElement::TEXT:
+                    renderText(el.content, el);
+                    break;
+                case SetupElement::IMAGE:
+                    renderImageElement(el);
+                    break;
+                case SetupElement::DATETIME:
+                    break;  // never populated here -- see constructor
+            }
         }
     }
     if (now - lastDateTimeMs_ >= 1000) {

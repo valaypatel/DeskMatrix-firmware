@@ -14,7 +14,7 @@ struct AppConfig {
     SpotifyConfig spotify;
     std::string dndArt = "dnd_default";
     std::string brbArt = "brb_default";
-    std::string clockFace = "mario"; // "mario" | "words" | "pacman" — idle-screen clockface preset
+    std::string clockFace = "mario"; // "mario" | "words" | "pacman" | "canvas" | "nyancat" | "starwars" — idle-screen clockface preset
     int brightness = 90; // 0-255, passed directly to MatrixPanel_I2S_DMA::setBrightness8()
     int timezoneOffsetMinutes = 0; // UTC offset, e.g. 330 for IST (+05:30); passed to configTime()
     bool sleep = false; // when true, screen renders black but WiFi/config/Spotify/IMU keep running; auto-wakes on Spotify playback

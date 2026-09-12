@@ -76,8 +76,8 @@ int main() {
     CHECK(parseConfig(withCanvasSerialized, reparsedCanvas, reparsedCanvasErr));
     CHECK_EQ(reparsedCanvas.canvasJson, withCanvas.canvasJson);
 
-    // canvasJson: exceeds 64KB is rejected
-    std::string oversizedJson = R"({"canvasJson":")" + std::string(70000, 'x') + R"("})";
+    // canvasJson: exceeds 16KB is rejected
+    std::string oversizedJson = R"({"canvasJson":")" + std::string(20000, 'x') + R"("})";
     AppConfig rejectedCanvas;
     std::string rejectedCanvasErr;
     CHECK(!parseConfig(oversizedJson, rejectedCanvas, rejectedCanvasErr));

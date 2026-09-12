@@ -4,14 +4,14 @@
 
 namespace {
 // Empty is always valid (no custom theme configured yet). Otherwise: size
-// capped at 64KB (comfortably above the largest known real clock-club
+// capped at 16KB (comfortably above the largest known real clock-club
 // theme, ~13.5KB), must be valid JSON, and must have a 'setup' or 'loop'
 // array -- catches an empty-object paste or a copy-paste of the wrong
 // thing without needing a full CanvasClockface parse here.
 bool isValidCanvasJson(const std::string& json, std::string& error) {
     if (json.empty()) return true;
-    if (json.size() > 65536) {
-        error = "canvasJson exceeds 64KB limit";
+    if (json.size() > 16384) {
+        error = "canvasJson exceeds 16KB limit";
         return false;
     }
     JsonDocument doc;

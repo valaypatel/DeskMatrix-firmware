@@ -59,6 +59,11 @@ class CanvasClockface : public IClockface {
     void renderDatetimeElements();
     void setFontByName(const std::string& name);
     bool loadSpriteFrame(const std::string& base64, SpriteFrame& outFrame);
+    // Parses one setup[]/loop[] JSON element into outEl (shared by both
+    // arrays, since loop[] can carry the same text/shape/datetime element
+    // shapes as setup[]). Returns false (outEl left partially populated) if
+    // `type` isn't recognized.
+    static bool parseSetupElement(JsonVariantConst item, SetupElement& outEl);
 
     Adafruit_GFX* display_ = nullptr;
     CWDateTime* dateTime_ = nullptr;
@@ -71,4 +76,9 @@ class CanvasClockface : public IClockface {
     std::vector<SetupElement> setupElements_;
     std::vector<std::vector<SpriteFrame>> loadedSprites_;  // [spriteIndex][frameIndex]
     std::vector<LoopSprite> loopSprites_;
+    // Non-sprite, non-datetime loop[] elements (text/shape) redrawn every
+    // delayMs_ tick alongside loopSprites_ -- see update(). Datetime-typed
+    // loop[] elements are routed into setupElements_ instead (see
+    // constructor), so this never contains a DATETIME element.
+    std::vector<SetupElement> loopElements_;
 };
