@@ -8,6 +8,9 @@
 #include "lib/cw-commons/IClockface.h"
 #include "lib/cw-commons/CWDateTime.h"
 #include "fonts/atari.h"
+// Shares Words' font files rather than its own vendored copies (see canvas/fonts/ history)
+// to avoid a duplicate-symbol compile error when both clockfaces are linked into the same
+// translation unit (ClockScreen.cpp includes both Words and Canvas clockfaces).
 #include "../words/hour8pt7b.h"
 #include "../words/minute7pt7b.h"
 #include <Fonts/Picopixel.h>
