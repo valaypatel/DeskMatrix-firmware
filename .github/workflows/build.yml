@@ -32,13 +32,7 @@ jobs:
       run: |
         arduino-cli lib install "WiFiManager" "ArduinoJson" "PNGdec" "AnimatedGIF" "JPEGDEC"
 
-        # Install SpotifyArduino from GitHub releases
-        mkdir -p "$HOME/Arduino/libraries"
-        cd "$HOME/Arduino/libraries"
-        curl -L -o SpotifyArduino.zip https://codeload.github.com/MartinMueller2003/SpotifyArduino/zip/refs/heads/main
-        unzip -q SpotifyArduino.zip
-        mv SpotifyArduino-main SpotifyArduino
-        rm SpotifyArduino.zip
+        # SpotifyArduino is provided locally in firmware/lib/ — not installed via registry
 
     - name: Create secrets.h from example
       run: |
