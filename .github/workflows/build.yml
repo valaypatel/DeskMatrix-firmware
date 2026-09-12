@@ -58,7 +58,6 @@ jobs:
       run: |
         arduino-cli compile \
           --fqbn esp32:esp32:esp32s3:FlashSize=32M,PSRAM=opi,PartitionScheme=app5M_little24M_32MB,CDCOnBoot=cdc \
-          --build-property build.extra_flags="-DENABLE_IMU_TILT=0" \
           --output-dir build \
           firmware/DeskMatrix/DeskMatrix.ino
 
