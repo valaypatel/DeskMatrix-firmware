@@ -97,6 +97,17 @@ button:hover{background:#444}
 </section>
 
 <section>
+<h2>Idle screen</h2>
+<label>Clock vs. screensaver GIF</label>
+<select id="idleMode" style="width:100%;padding:.5em;margin-bottom:.4em;box-sizing:border-box">
+<option value="auto">Auto (alternate: clock, then GIF every 5 min)</option>
+<option value="clock">Always clock</option>
+<option value="gif">Always GIF</option>
+</select>
+<div class="status" id="idleModeStatus"></div>
+</section>
+
+<section>
 <h2>Timezone</h2>
 <label>Used for the clock and Wi-Fi setup's time display</label>
 <select id="timezone" style="width:100%;padding:.5em;margin-bottom:.4em;box-sizing:border-box">
@@ -180,6 +191,19 @@ getConfig().then(cfg => {
   document.getElementById('sleepEnabled').checked = !!cfg.sleep;
   document.getElementById('canvasJson').value = cfg.canvasJson || '';
   updateCanvasSectionVisibility(cfg.clockFace || 'mario');
+  document.getElementById('idleMode').value = cfg.idleMode || 'auto';
+});
+
+document.getElementById('idleMode').addEventListener('change', async e => {
+  const status = document.getElementById('idleModeStatus');
+  status.textContent = 'Saving...'; status.className = 'status';
+  try {
+    const cfg = await getConfig();
+    cfg.idleMode = e.target.value;
+    const res = await putConfig(cfg);
+    status.textContent = res.ok ? 'Saved.' : 'Failed to save.';
+    status.className = res.ok ? 'status ok' : 'status err';
+  } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
 });
 
 document.getElementById('sleepEnabled').addEventListener('change', async e => {

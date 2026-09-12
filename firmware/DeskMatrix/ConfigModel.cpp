@@ -66,6 +66,9 @@ bool parseConfig(const std::string& json, AppConfig& out, std::string& error) {
 
     out.sleep = doc["sleep"] | false;
 
+    std::string idleMode = std::string(doc["idleMode"] | "auto");
+    out.idleMode = (idleMode == "clock" || idleMode == "gif") ? idleMode : "auto";
+
     return true;
 }
 
@@ -86,6 +89,7 @@ std::string serializeConfig(const AppConfig& config) {
     doc["timezoneOffsetMinutes"] = config.timezoneOffsetMinutes;
     doc["canvasJson"] = config.canvasJson;
     doc["sleep"] = config.sleep;
+    doc["idleMode"] = config.idleMode;
 
     std::string out;
     serializeJson(doc, out);

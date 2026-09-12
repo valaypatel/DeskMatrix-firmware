@@ -264,27 +264,35 @@ void loop() {
   static int gifLoopsPlayed = 0;
 
   if (stateMachine.mode() == ScreenMode::SCREENSAVER) {
+    // appConfig.idleMode overrides the auto-alternating timer below:
+    // "clock"/"gif" pin the idle screen to one or the other; "auto" (the
+    // default) leaves the existing 5-minute-interval/10-loop behavior
+    // untouched.
+    if (appConfig.idleMode == "clock") {
+      showingGifInterlude = false;
+    } else if (appConfig.idleMode == "gif") {
+      showingGifInterlude = true;
+    } else if (!showingGifInterlude && (nowMs - clockShownSinceMs) >= kClockGifIntervalMs) {
+      showingGifInterlude = true;
+      gifLoopsPlayed = 0;
+    }
+
     if (!showingGifInterlude) {
-      if ((nowMs - clockShownSinceMs) >= kClockGifIntervalMs) {
-        showingGifInterlude = true;
-        gifLoopsPlayed = 0;
-      } else {
-        // Gated to ~30fps (33ms) — unlike GIF/Spotify playback, which pace
-        // themselves and are naturally sparse, drawClockFrame() redraws and
-        // flips unconditionally every call. Without this gate it was being
-        // called on every single uncapped loop() iteration (thousands/sec),
-        // constantly re-blitting the full 64x64 canvas and flipping the
-        // display buffer — needless DMA/CPU load that starved the rest of
-        // loop() and showed up as visible stutter during Mario's jump
-        // (confirmed on real hardware). 33ms keeps up fine with the
-        // clockfaces' own ~50ms animation steps (see MarioSprite.cpp).
-        static unsigned long lastClockRenderMs = 0;
-        if ((nowMs - lastClockRenderMs) >= 33) {
-          lastClockRenderMs = nowMs;
-          drawClockFrame(dma_display);
-        }
-        return;
+      // Gated to ~30fps (33ms) — unlike GIF/Spotify playback, which pace
+      // themselves and are naturally sparse, drawClockFrame() redraws and
+      // flips unconditionally every call. Without this gate it was being
+      // called on every single uncapped loop() iteration (thousands/sec),
+      // constantly re-blitting the full 64x64 canvas and flipping the
+      // display buffer — needless DMA/CPU load that starved the rest of
+      // loop() and showed up as visible stutter during Mario's jump
+      // (confirmed on real hardware). 33ms keeps up fine with the
+      // clockfaces' own ~50ms animation steps (see MarioSprite.cpp).
+      static unsigned long lastClockRenderMs = 0;
+      if ((nowMs - lastClockRenderMs) >= 33) {
+        lastClockRenderMs = nowMs;
+        drawClockFrame(dma_display);
       }
+      return;
     }
     // showingGifInterlude: not gated by any fixed tick either, same
     // reasoning as before — GIF playback paces itself off each frame's own
@@ -292,7 +300,7 @@ void loop() {
     drawScreensaverFrame(dma_display);
     if (screensaverGifLoopCompleted()) {
       gifLoopsPlayed++;
-      if (gifLoopsPlayed >= kClockGifLoops) {
+      if (appConfig.idleMode == "auto" && gifLoopsPlayed >= kClockGifLoops) {
         showingGifInterlude = false;
         clockShownSinceMs = nowMs;
       }

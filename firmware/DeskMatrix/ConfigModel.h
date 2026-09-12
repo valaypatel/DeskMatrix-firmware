@@ -19,6 +19,7 @@ struct AppConfig {
     int timezoneOffsetMinutes = 0; // UTC offset, e.g. 330 for IST (+05:30); passed to configTime()
     bool sleep = false; // when true, screen renders black but WiFi/config/Spotify/IMU keep running; auto-wakes on Spotify playback
     std::string canvasJson; // user-pasted Canvas clockface theme JSON (see screens/clockfaces/canvas/); empty = none configured
+    std::string idleMode = "auto"; // "auto" | "clock" | "gif" — overrides the automatic clock/GIF-interlude alternation in DeskMatrix.ino's loop()
 };
 
 // Returns true and fills `out` on success; returns false and fills `error` on failure.
