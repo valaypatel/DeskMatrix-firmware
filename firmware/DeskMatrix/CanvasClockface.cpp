@@ -229,6 +229,12 @@ void CanvasClockface::renderImageElement(const SetupElement& el) {
     std::vector<uint8_t> raw;
     if (!base64DecodeGuarded(el.content, raw)) return;
     if (g_png.openRAM(raw.data(), (int)raw.size(), pngDrawCallback) != PNG_SUCCESS) return;
+    int w = g_png.getWidth();
+    int h = g_png.getHeight();
+    if (w <= 0 || h <= 0 || w > 64 || h > 64) {
+        g_png.close();
+        return;
+    }
     g_pngDrawDirect = true;
     g_pngDrawTarget = display_;
     g_pngDrawX = el.x;
