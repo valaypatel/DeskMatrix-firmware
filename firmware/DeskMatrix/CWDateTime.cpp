@@ -74,6 +74,11 @@ int CWDateTime::getMonth()
   return getLocalTm().tm_mon + 1;
 }
 
+int CWDateTime::getYear()
+{
+  return getLocalTm().tm_year + 1900;
+}
+
 int CWDateTime::getWeekday()
 {
   return getLocalTm().tm_wday;

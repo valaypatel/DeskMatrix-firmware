@@ -38,6 +38,7 @@ public:
   int getSecond();     // 0-59
   int getDay();        // 1-31 (day of month)
   int getMonth();      // 1-12
+  int getYear();       // e.g. 2026
   int getWeekday();    // 0=Sunday .. 6=Saturday
   long getMilliseconds();
 };
