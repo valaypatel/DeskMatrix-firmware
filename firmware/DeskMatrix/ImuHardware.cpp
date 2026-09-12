@@ -16,7 +16,12 @@
 
 #include <Arduino.h>
 #include <Wire.h>
+
+#if ENABLE_IMU_TILT
 #include <SensorQMI8658.hpp>
+#endif
+
+#if ENABLE_IMU_TILT
 
 namespace {
 constexpr int kImuSdaPin = 47;
@@ -40,9 +45,6 @@ bool readI2cRegister8(uint8_t addr, uint8_t reg, uint8_t& value) {
     return true;
 }
 
-// Matches Waveshare's example: probe both possible QMI8658 I2C addresses
-// and confirm the WHO_AM_I register (0x00) reads back 0x05 before trusting
-// the address.
 uint8_t detectQmiAddress() {
     const uint8_t candidates[] = {QMI8658_H_SLAVE_ADDRESS, QMI8658_L_SLAVE_ADDRESS};
     for (uint8_t addr : candidates) {
@@ -56,7 +58,7 @@ uint8_t detectQmiAddress() {
 }  // namespace
 
 bool imuBegin() {
-    Wire.begin(kImuSdaPin, kImuSclPin);
+    Wire.begin(47, 48);
     Wire.setClock(400000);
 
     uint8_t addr = detectQmiAddress();
@@ -96,14 +98,21 @@ PanelOrientation imuReadOrientation() {
         return PanelOrientation::NORMAL;
     }
 
-    // See this function's header comment for the reference readings this
-    // is based on. ay dominant (over ax) and clearly non-zero means the
-    // panel has been rotated into the D or B position; its sign tells
-    // which. Everything else — ax dominant (the A or C position) or a
-    // transitional reading mid-rotation — falls back to NORMAL.
-    constexpr float kMinDominantG = 0.5f; // reference orientations read ~1g; well clear of noise
+    constexpr float kMinDominantG = 0.5f;
     if (fabsf(ay) > fabsf(ax) && fabsf(ay) > kMinDominantG) {
         return (ay > 0) ? PanelOrientation::DND : PanelOrientation::BRB;
     }
     return PanelOrientation::NORMAL;
 }
+
+#else
+
+bool imuBegin() {
+    return false;
+}
+
+PanelOrientation imuReadOrientation() {
+    return PanelOrientation::NORMAL;
+}
+
+#endif
