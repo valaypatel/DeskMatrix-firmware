@@ -8,8 +8,8 @@
 #include "lib/cw-commons/IClockface.h"
 #include "lib/cw-commons/CWDateTime.h"
 #include "fonts/atari.h"
-#include "fonts/hour8pt7b.h"
-#include "fonts/minute7pt7b.h"
+#include "../words/hour8pt7b.h"
+#include "../words/minute7pt7b.h"
 #include <Fonts/Picopixel.h>
 
 // Interprets a Clockwise "Canvas" (cw-cf-0x07) theme JSON string at

@@ -1,6 +1,6 @@
 #pragma once
-#ifndef HOUR8PT7B_INCLUDED
-#define HOUR8PT7B_INCLUDED
+#ifndef CANVAS_FONTS_HOUR8PT7B_H_INCLUDED
+#define CANVAS_FONTS_HOUR8PT7B_H_INCLUDED
 
 #include <Arduino.h>
 #include <gfxfont.h>
@@ -207,4 +207,4 @@ const GFXfont hour8pt7b PROGMEM = {
 
 // Approx. 1481 bytes
 
-#endif  // HOUR8PT7B_INCLUDED
+#endif  // CANVAS_FONTS_HOUR8PT7B_H_INCLUDED
