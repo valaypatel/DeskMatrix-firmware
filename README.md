@@ -78,6 +78,8 @@ firmware/DeskMatrix/
 
 ## Getting Started
 
+**Quick setup:** See [SETUP.md](SETUP.md) for library installation and credentials setup.
+
 ### 1. Build Prerequisites
 
 - **Arduino IDE 2.0+** or **Arduino CLI**
