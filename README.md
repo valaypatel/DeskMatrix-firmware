@@ -14,10 +14,40 @@ An ESP32-S3 LED matrix display platform for your desk — animated clocks, Spoti
 
 ## Hardware
 
-- **ESP32-S3-N32R16** — 32MB Flash, 16MB OPI PSRAM
-- **64×64 HUB75 RGB LED Matrix** (2.5mm pitch)
-- **6-axis IMU** (optional, for tilt-based gestures)
-- **USB-C Programming** via CDC
+### Specifications
+
+- **Microcontroller** — ESP32-S3-N32R16 (32MB Flash, 16MB OPI PSRAM)
+- **Display** — 64×64 HUB75 RGB LED Matrix (2.5mm pitch)
+- **Sensor** — 6-axis IMU (optional, for tilt-based gestures)
+- **Programming** — USB-C via CDC
+
+### Bill of Materials
+
+| Component | Qty | Notes |
+|-----------|-----|-------|
+| ESP32-S3-N32R16 Dev Board | 1 | Microcontroller with PSRAM |
+| 64×64 HUB75 RGB LED Matrix | 1 | 2.5mm pitch, ~1000-5000 nits |
+| 5V Power Supply | 1 | **20A+ recommended** for full brightness (see Power Supply Notes below) |
+| HUB75 Cable (or DIY ribbon) | 1 | 16-pin connection to matrix |
+| Mounting Bracket/Enclosure | 1 | Optional — 3D printed or custom |
+| 6-Axis IMU (MPU6050 or similar) | 1 | Optional — for tilt gesture detection |
+
+### Power Supply Notes
+
+The HUB75 matrix's power draw varies by content:
+- **Idle/Clock**: 2-5A at 5V
+- **Animated GIF**: 5-15A at 5V  
+- **Full White Brightness**: 15-20A at 5V
+
+**Recommended:** 5V 20A power supply with quality wiring and a capacitor across the supply leads to smooth inrush current.
+
+Common sources: Amazon, Adafruit, AliExpress. Look for industrial-grade supplies rated for LED matrices.
+
+### Assembly
+
+Wire the HUB75 matrix to the ESP32-S3 according to the pinout in `firmware/DeskMatrix/config.h` (GPIO pins 2-18 used for the DMA display driver). Connect 5V power to the matrix's +5V and GND pins.
+
+Optionally add the IMU (I²C: GPIO 41 SDA, GPIO 42 SCL) for tilt gestures.
 
 ## Project Structure
 
