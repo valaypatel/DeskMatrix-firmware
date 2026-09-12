@@ -30,7 +30,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        arduino-cli lib install "WiFiManager" "ArduinoJson" "PNGdec" "AnimatedGIF" "JPEGDEC"
+        arduino-cli lib install "WiFiManager" "ArduinoJson" "PNGdec" "AnimatedGIF" "JPEGDEC" "Adafruit GFX Library" "Adafruit BusIO"
 
         # Install libraries from GitHub (not in standard registry)
         mkdir -p "$HOME/Arduino/libraries"
