@@ -75,6 +75,17 @@ void SpotifyService::poll() {
         // immediately). Traffic stays encrypted; only server identity
         // verification is skipped. Accepted trade-off — see project notes.
         client.setInsecure();
+        // WiFiClientSecure's defaults (30s connect, 120s TLS handshake) let a
+        // single failing/degraded connection to Spotify's servers block the
+        // entire main loop() -- freezing the display and the config web
+        // server -- for up to 2.5 minutes per attempt (confirmed on real
+        // hardware: enabling Spotify with a bad network path froze the
+        // matrix and made the config page unreachable). Bounding both to a
+        // few seconds means a failing poll only costs a few seconds, not
+        // minutes, leaving the rest of loop() (display, HTTP) running
+        // normally in between.
+        client.setConnectionTimeout(4000);
+        client.setHandshakeTimeout(5); // seconds, per NetworkClientSecure::setHandshakeTimeout
         spotify = new SpotifyArduino(client, clientId_.c_str(), clientSecret_.c_str(), refreshToken_.c_str());
         lastRefreshOk = spotify->refreshAccessToken();
         if (!lastRefreshOk) {
