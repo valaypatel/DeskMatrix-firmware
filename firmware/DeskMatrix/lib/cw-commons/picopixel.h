@@ -1,6 +1,6 @@
 #pragma once
-#ifndef CW_PICOPIXEL_H_INCLUDED
-#define CW_PICOPIXEL_H_INCLUDED
+#ifndef PICOPIXEL_INCLUDED
+#define PICOPIXEL_INCLUDED
 
 #include <Arduino.h>
 #include <gfxfont.h>
@@ -124,4 +124,4 @@ const GFXglyph PicopixelGlyphs[] PROGMEM = {{0, 0, 0, 2, 0, 1},     // 0x20 ' '
 const GFXfont Picopixel PROGMEM = {(uint8_t *)PicopixelBitmaps,
                                    (GFXglyph *)PicopixelGlyphs, 0x20, 0x7E, 7};
 
-#endif  // CW_PICOPIXEL_H_INCLUDED
+#endif  // PICOPIXEL_INCLUDED

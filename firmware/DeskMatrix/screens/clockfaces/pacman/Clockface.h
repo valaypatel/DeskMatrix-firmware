@@ -5,7 +5,7 @@
 
 
 #include "hour_font.h"
-#include "lib/cw-commons/picopixel.h"
+#include <Fonts/Picopixel.h>
 
 #include <Adafruit_GFX.h>
 #include "lib/cw-gfx-engine/Tile.h"
