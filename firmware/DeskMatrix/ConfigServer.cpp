@@ -83,8 +83,17 @@ button:hover{background:#444}
 <option value="mario">Mario</option>
 <option value="words">Words</option>
 <option value="pacman">Pacman</option>
+<option value="nyancat">Nyan Cat</option>
+<option value="starwars">Star Wars</option>
+<option value="canvas">Canvas (custom)</option>
 </select>
 <div class="status" id="clockFaceStatus"></div>
+<div id="canvasJsonSection" style="display:none;margin-top:.8em">
+<label>Custom theme JSON (paste a theme from github.com/jnthas/clock-club)</label>
+<textarea id="canvasJson" rows="8" style="width:100%;padding:.5em;box-sizing:border-box;font-family:monospace;font-size:.8em"></textarea>
+<button type="button" id="canvasJsonSaveBtn" style="margin-top:.5em">Save custom theme</button>
+<div class="status" id="canvasJsonStatus"></div>
+</div>
 </section>
 
 <section>
@@ -158,6 +167,10 @@ async function putConfig(cfg) {
   return fetch('/api/config', {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg)});
 }
 
+function updateCanvasSectionVisibility(clockFaceValue) {
+  document.getElementById('canvasJsonSection').style.display = (clockFaceValue === 'canvas') ? 'block' : 'none';
+}
+
 getConfig().then(cfg => {
   document.getElementById('brightness').value = cfg.brightness;
   document.getElementById('brightnessVal').textContent = cfg.brightness;
@@ -165,6 +178,8 @@ getConfig().then(cfg => {
   document.getElementById('timezone').value = cfg.timezoneOffsetMinutes || 0;
   document.getElementById('spotifyEnabled').checked = cfg.spotify ? cfg.spotify.enabled !== false : true;
   document.getElementById('sleepEnabled').checked = !!cfg.sleep;
+  document.getElementById('canvasJson').value = cfg.canvasJson || '';
+  updateCanvasSectionVisibility(cfg.clockFace || 'mario');
 });
 
 document.getElementById('sleepEnabled').addEventListener('change', async e => {
@@ -192,6 +207,7 @@ document.getElementById('spotifyEnabled').addEventListener('change', async e => 
 });
 
 document.getElementById('clockFace').addEventListener('change', async e => {
+  updateCanvasSectionVisibility(e.target.value);
   const status = document.getElementById('clockFaceStatus');
   status.textContent = 'Saving...'; status.className = 'status';
   try {
@@ -200,6 +216,22 @@ document.getElementById('clockFace').addEventListener('change', async e => {
     const res = await putConfig(cfg);
     status.textContent = res.ok ? 'Saved.' : 'Failed to save.';
     status.className = res.ok ? 'status ok' : 'status err';
+  } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
+});
+
+document.getElementById('canvasJsonSaveBtn').addEventListener('click', async () => {
+  const status = document.getElementById('canvasJsonStatus');
+  status.textContent = 'Saving...'; status.className = 'status';
+  try {
+    const cfg = await getConfig();
+    cfg.canvasJson = document.getElementById('canvasJson').value;
+    const res = await putConfig(cfg);
+    if (res.ok) {
+      status.textContent = 'Saved.'; status.className = 'status ok';
+    } else {
+      const body = await res.json().catch(() => ({}));
+      status.textContent = 'Failed: ' + (body.error || 'invalid JSON'); status.className = 'status err';
+    }
   } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
 });
 
