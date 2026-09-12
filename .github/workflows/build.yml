@@ -30,7 +30,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        arduino-cli lib install "WiFiManager" "ArduinoJson" "PNGdec" "AnimatedGIF" "JPEGDEC"
+        arduino-cli lib install "WiFiManager" "ArduinoJson" "PNGdec" "AnimatedGIF" "JPEGDEC" "ESP32-HUB75-MatrixPanel-I2S-DMA"
 
         # SpotifyArduino is provided locally in firmware/lib/ — not installed via registry
 
