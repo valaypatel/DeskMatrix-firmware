@@ -25,19 +25,20 @@ uint16_t g_pngDecodeDstW = 0;
 uint16_t g_pngDecodeDstH = 0;
 
 int pngDrawCallback(PNGDRAW* pDraw) {
-    uint16_t line[64];
-    g_png.getLineAsRGB565(pDraw, line, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
     // Defense in depth on top of the width/height guards at both call sites
     // (loadSpriteFrame/renderImageElement already reject w > 64 before
-    // decoding) -- never let iWidth overrun the 64-wide stack buffer above.
-    int width = pDraw->iWidth;
-    if (width > 64) width = 64;
+    // decoding) -- bail before getLineAsRGB565 ever writes into the
+    // 64-wide stack buffer below, rather than clamping only the later
+    // consumers of `line`.
+    if (pDraw->iWidth > 64) return 1;
+    uint16_t line[64];
+    g_png.getLineAsRGB565(pDraw, line, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
     if (g_pngDrawDirect) {
         if (g_pngDrawTarget != nullptr) {
-            g_pngDrawTarget->drawRGBBitmap(g_pngDrawX, g_pngDrawY + pDraw->y, line, width, 1);
+            g_pngDrawTarget->drawRGBBitmap(g_pngDrawX, g_pngDrawY + pDraw->y, line, pDraw->iWidth, 1);
         }
     } else if (g_pngDecodeDst != nullptr && pDraw->y < g_pngDecodeDstH) {
-        memcpy(g_pngDecodeDst + (size_t)pDraw->y * g_pngDecodeDstW * 2, line, (size_t)width * 2);
+        memcpy(g_pngDecodeDst + (size_t)pDraw->y * g_pngDecodeDstW * 2, line, (size_t)pDraw->iWidth * 2);
     }
     return 1;
 }
@@ -134,6 +135,15 @@ CanvasClockface::CanvasClockface(Adafruit_GFX* display, const char* themeJson) :
             // a datetime found in loop[] through that same path instead of
             // creating a second redraw path for it.
             setupElements_.push_back(el);
+        } else if (el.type == SetupElement::IMAGE) {
+            // Unlike sprites (base64+PNG decoded once at construction into
+            // a PSRAM buffer, then just blitted), renderImageElement()
+            // re-runs base64 decode + PNG open + PNG decode from scratch on
+            // every call -- redrawing it on every delayMs_ tick (as often
+            // as ~50x/sec) would be a hot-path decode loop plus repeated
+            // [canvas] failure logging on a malformed image. Not supported
+            // in loop[]; use setup[] for a static image instead.
+            Serial.println("[canvas] image not supported in loop[], use setup[] instead");
         } else {
             loopElements_.push_back(el);
         }
@@ -352,8 +362,6 @@ void CanvasClockface::update() {
                     renderText(el.content, el);
                     break;
                 case SetupElement::IMAGE:
-                    renderImageElement(el);
-                    break;
                 case SetupElement::DATETIME:
                     break;  // never populated here -- see constructor
             }

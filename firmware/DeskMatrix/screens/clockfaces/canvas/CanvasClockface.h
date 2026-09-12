@@ -76,9 +76,12 @@ class CanvasClockface : public IClockface {
     std::vector<SetupElement> setupElements_;
     std::vector<std::vector<SpriteFrame>> loadedSprites_;  // [spriteIndex][frameIndex]
     std::vector<LoopSprite> loopSprites_;
-    // Non-sprite, non-datetime loop[] elements (text/shape) redrawn every
-    // delayMs_ tick alongside loopSprites_ -- see update(). Datetime-typed
-    // loop[] elements are routed into setupElements_ instead (see
-    // constructor), so this never contains a DATETIME element.
+    // Non-sprite loop[] shape/text elements (rect/fillrect/line/text)
+    // redrawn every delayMs_ tick alongside loopSprites_ -- see update().
+    // Datetime-typed loop[] elements are routed into setupElements_
+    // instead (see constructor), and image-typed loop[] elements are
+    // rejected outright (renderImageElement() re-decodes from scratch on
+    // every call, so redrawing it on a per-tick cadence would be a hot
+    // decode loop) -- so this never contains a DATETIME or IMAGE element.
     std::vector<SetupElement> loopElements_;
 };
