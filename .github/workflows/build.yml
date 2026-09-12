@@ -30,9 +30,19 @@ jobs:
 
     - name: Install dependencies
       run: |
-        arduino-cli lib install "WiFiManager" "ArduinoJson" "PNGdec" "AnimatedGIF" "JPEGDEC" "ESP32-HUB75-MatrixPanel-I2S-DMA"
+        arduino-cli lib install "WiFiManager" "ArduinoJson" "PNGdec" "AnimatedGIF" "JPEGDEC"
 
-        # SpotifyArduino is provided locally in firmware/lib/ — not installed via registry
+        # Install libraries from GitHub (not in standard registry)
+        mkdir -p "$HOME/Arduino/libraries"
+
+        # ESP32-HUB75-MatrixPanel-I2S-DMA
+        cd "$HOME/Arduino/libraries"
+        wget -q https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-I2S-DMA/archive/refs/heads/master.zip -O hub75.zip && \
+        unzip -q hub75.zip && mv ESP32-HUB75-MatrixPanel-I2S-DMA-master ESP32-HUB75-MatrixPanel-I2S-DMA && rm hub75.zip || true
+
+        # SpotifyArduino
+        wget -q https://github.com/MartinMueller2003/SpotifyArduino/archive/refs/heads/main.zip -O spotify.zip && \
+        unzip -q spotify.zip && mv SpotifyArduino-main SpotifyArduino && rm spotify.zip || true
 
     - name: Create secrets.h from example
       run: |
