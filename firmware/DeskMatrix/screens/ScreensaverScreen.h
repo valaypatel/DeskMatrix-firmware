@@ -22,6 +22,13 @@ void unloadScreensaverGif();
 // Flips the display buffer itself whenever it actually draws a frame.
 void drawScreensaverFrame(MatrixPanel_I2S_DMA* display);
 
+// One-shot flag: true the first time this is called after the screensaver
+// GIF (not the DND GIF — they share a decoder, see ScreensaverScreen.cpp)
+// has wrapped back around to its first frame since the last call. Reading it
+// clears it. Used by DeskMatrix.ino's loop() to count how many full loops
+// the GIF interlude has played before reverting to the clock screen.
+bool screensaverGifLoopCompleted();
+
 // True if a custom DND GIF (/dnd.gif) has been uploaded — callers use this
 // to decide between it and the plain colored DND fallback (drawDndScreen).
 bool dndGifExists();

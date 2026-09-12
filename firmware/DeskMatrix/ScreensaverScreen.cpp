@@ -25,6 +25,11 @@ bool g_loaded = false;
 std::string g_loadedPath; // which path is currently loaded, empty if none
 unsigned long g_nextFrameDueMs = 0;
 
+// One-shot "the screensaver GIF just wrapped a loop" flag — see
+// screensaverGifLoopCompleted() below. Only set when the *screensaver* path
+// (not the DND path, which shares this same decoder) is what looped.
+bool g_screensaverLoopCompleted = false;
+
 // A persistent off-screen canvas, not the display's own double-buffer.
 // Many real-world GIFs are delta-encoded: a frame only redraws the pixels
 // that changed and relies on the rest of the previous frame staying put
@@ -180,6 +185,10 @@ void playCurrentFrame(MatrixPanel_I2S_DMA* display, const char* path) {
         // openGifFile()'s comment).
         g_gif.close();
         openGifFile(path);
+        // Pointer comparison is safe here: both call sites below always pass
+        // the same string-literal pointer (kScreensaverPath/kDndPath), never
+        // a copy, so identity comparison is equivalent to path comparison.
+        if (path == kScreensaverPath) g_screensaverLoopCompleted = true;
     }
 
     // Blit the whole canvas every frame (not just the pixels this frame's
@@ -213,4 +222,10 @@ bool dndGifExists() {
 
 void drawDndGifFrame(MatrixPanel_I2S_DMA* display) {
     playCurrentFrame(display, kDndPath);
+}
+
+bool screensaverGifLoopCompleted() {
+    bool result = g_screensaverLoopCompleted;
+    g_screensaverLoopCompleted = false;
+    return result;
 }

@@ -18,11 +18,17 @@ bool parseConfig(const std::string& json, AppConfig& out, std::string& error) {
 
     out.dndArt = std::string(doc["dnd"]["art"] | "dnd_default");
     out.brbArt = std::string(doc["brb"]["art"] | "brb_default");
+    out.clockFace = std::string(doc["clockFace"] | "mario");
 
     int brightness = doc["brightness"] | 90;
     if (brightness < 0) brightness = 0;
     if (brightness > 255) brightness = 255;
     out.brightness = brightness;
+
+    int tzOffset = doc["timezoneOffsetMinutes"] | 0;
+    if (tzOffset < -720) tzOffset = -720; // UTC-12:00
+    if (tzOffset > 840) tzOffset = 840;   // UTC+14:00
+    out.timezoneOffsetMinutes = tzOffset;
 
     return true;
 }
@@ -38,7 +44,9 @@ std::string serializeConfig(const AppConfig& config) {
 
     doc["dnd"]["art"] = config.dndArt;
     doc["brb"]["art"] = config.brbArt;
+    doc["clockFace"] = config.clockFace;
     doc["brightness"] = config.brightness;
+    doc["timezoneOffsetMinutes"] = config.timezoneOffsetMinutes;
 
     std::string out;
     serializeJson(doc, out);

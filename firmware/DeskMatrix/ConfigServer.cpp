@@ -71,6 +71,62 @@ button:hover{background:#444}
 </section>
 
 <section>
+<h2>Clock face</h2>
+<label>Idle-screen clock (shown between screensaver GIF interludes)</label>
+<select id="clockFace" style="width:100%;padding:.5em;margin-bottom:.4em;box-sizing:border-box">
+<option value="mario">Mario</option>
+<option value="words">Words</option>
+<option value="pacman">Pacman</option>
+</select>
+<div class="status" id="clockFaceStatus"></div>
+</section>
+
+<section>
+<h2>Timezone</h2>
+<label>Used for the clock and Wi-Fi setup's time display</label>
+<select id="timezone" style="width:100%;padding:.5em;margin-bottom:.4em;box-sizing:border-box">
+<option value="-720">UTC-12:00</option>
+<option value="-660">UTC-11:00</option>
+<option value="-600">UTC-10:00</option>
+<option value="-540">UTC-09:00</option>
+<option value="-480">UTC-08:00 (Pacific)</option>
+<option value="-420">UTC-07:00 (Mountain)</option>
+<option value="-360">UTC-06:00 (Central)</option>
+<option value="-300">UTC-05:00 (Eastern)</option>
+<option value="-240">UTC-04:00</option>
+<option value="-210">UTC-03:30</option>
+<option value="-180">UTC-03:00</option>
+<option value="-120">UTC-02:00</option>
+<option value="-60">UTC-01:00</option>
+<option value="0">UTC+00:00</option>
+<option value="60">UTC+01:00 (Central Europe)</option>
+<option value="120">UTC+02:00 (Eastern Europe)</option>
+<option value="180">UTC+03:00</option>
+<option value="210">UTC+03:30 (Iran)</option>
+<option value="240">UTC+04:00</option>
+<option value="270">UTC+04:30 (Afghanistan)</option>
+<option value="300">UTC+05:00</option>
+<option value="330">UTC+05:30 (India)</option>
+<option value="345">UTC+05:45 (Nepal)</option>
+<option value="360">UTC+06:00</option>
+<option value="390">UTC+06:30 (Myanmar)</option>
+<option value="420">UTC+07:00</option>
+<option value="480">UTC+08:00 (China/Singapore)</option>
+<option value="525">UTC+08:45</option>
+<option value="540">UTC+09:00 (Japan/Korea)</option>
+<option value="570">UTC+09:30</option>
+<option value="600">UTC+10:00</option>
+<option value="630">UTC+10:30</option>
+<option value="660">UTC+11:00</option>
+<option value="720">UTC+12:00</option>
+<option value="765">UTC+12:45</option>
+<option value="780">UTC+13:00</option>
+<option value="840">UTC+14:00</option>
+</select>
+<div class="status" id="timezoneStatus"></div>
+</section>
+
+<section>
 <h2>Brightness</h2>
 <label>Panel brightness (<span id="brightnessVal">-</span> / 255)</label>
 <input type="range" id="brightness" min="0" max="255">
@@ -93,6 +149,32 @@ async function putConfig(cfg) {
 getConfig().then(cfg => {
   document.getElementById('brightness').value = cfg.brightness;
   document.getElementById('brightnessVal').textContent = cfg.brightness;
+  document.getElementById('clockFace').value = cfg.clockFace || 'mario';
+  document.getElementById('timezone').value = cfg.timezoneOffsetMinutes || 0;
+});
+
+document.getElementById('clockFace').addEventListener('change', async e => {
+  const status = document.getElementById('clockFaceStatus');
+  status.textContent = 'Saving...'; status.className = 'status';
+  try {
+    const cfg = await getConfig();
+    cfg.clockFace = e.target.value;
+    const res = await putConfig(cfg);
+    status.textContent = res.ok ? 'Saved.' : 'Failed to save.';
+    status.className = res.ok ? 'status ok' : 'status err';
+  } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
+});
+
+document.getElementById('timezone').addEventListener('change', async e => {
+  const status = document.getElementById('timezoneStatus');
+  status.textContent = 'Saving...'; status.className = 'status';
+  try {
+    const cfg = await getConfig();
+    cfg.timezoneOffsetMinutes = parseInt(e.target.value, 10);
+    const res = await putConfig(cfg);
+    status.textContent = res.ok ? 'Saved.' : 'Failed to save.';
+    status.className = res.ok ? 'status ok' : 'status err';
+  } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
 });
 
 document.getElementById('wifiScanBtn').addEventListener('click', async () => {
