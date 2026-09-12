@@ -131,8 +131,11 @@ the first future data source (e.g. Jira) adds an entry here plus an
 - `PUT /api/config` — replace whole config; validate; persist to flash
   (LittleFS); apply live. Malformed config is rejected (400) and the last
   valid config stays active — a bad push never bricks the display.
-- `POST /api/assets/:id` — upload a new icon/image bitmap (binary, 64×64,
-  RGB565), stored in flash, referenced by id from widget/screen config
+- `POST /api/assets?id=...` — upload a new icon/image bitmap (binary, 64×64,
+  RGB565), stored in flash, referenced by id from widget/screen config. (The
+  id is passed as a query parameter rather than a path segment because the
+  ESP32 `WebServer` library used by the firmware has no path-parameter
+  support.)
 - `POST /api/ota` — accept a compiled firmware binary, flash, reboot
 
 **Boot sequence** (Wi-Fi provisioning already built and validated):
@@ -151,6 +154,17 @@ the first future data source (e.g. Jira) adds an entry here plus an
   active
 - **IMU unavailable/init failure**: DND/BRB simply disabled for that boot;
   rest of the system unaffected
+
+## Known MVP limitations
+
+- **Timezone is a compile-time constant**: `TIMEZONE_OFFSET_SEC` in
+  `firmware/DeskMatrix/config.h` is baked into the firmware image at build
+  time; it is not part of the config schema above and cannot be changed via
+  `PUT /api/config`. This means a timezone change currently requires a
+  firmware rebuild and reflash, contradicting this spec's stated goal that
+  "the firmware never needs to be touched for everyday configuration
+  changes." Making timezone config-driven (e.g. an added `"timezone"` field
+  applied via `configTime()` at runtime) is a follow-up, not yet implemented.
 
 ## Testing approach
 
