@@ -34,15 +34,31 @@ jobs:
 
         # Install libraries from GitHub (not in standard registry)
         mkdir -p "$HOME/Arduino/libraries"
+        cd "$HOME/Arduino/libraries"
 
         # ESP32-HUB75-MatrixPanel-I2S-DMA
-        cd "$HOME/Arduino/libraries"
-        wget -q https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-I2S-DMA/archive/refs/heads/master.zip -O hub75.zip && \
-        unzip -q hub75.zip && mv ESP32-HUB75-MatrixPanel-I2S-DMA-master ESP32-HUB75-MatrixPanel-I2S-DMA && rm hub75.zip || true
+        echo "Downloading HUB75 library..."
+        wget -q -O hub75.zip https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-I2S-DMA/archive/refs/heads/master.zip
+        if [ -f hub75.zip ] && unzip -q hub75.zip; then
+          mv ESP32-HUB75-MatrixPanel-I2S-DMA-master ESP32-HUB75-MatrixPanel-I2S-DMA 2>/dev/null || true
+          rm hub75.zip
+        fi
 
         # SpotifyArduino
-        wget -q https://github.com/MartinMueller2003/SpotifyArduino/archive/refs/heads/main.zip -O spotify.zip && \
-        unzip -q spotify.zip && mv SpotifyArduino-main SpotifyArduino && rm spotify.zip || true
+        echo "Downloading SpotifyArduino library..."
+        wget -q -O spotify.zip https://github.com/MartinMueller2003/SpotifyArduino/archive/refs/heads/main.zip
+        if [ -f spotify.zip ] && unzip -q spotify.zip; then
+          mv SpotifyArduino-main SpotifyArduino 2>/dev/null || true
+          rm spotify.zip
+        fi
+
+        # QMI8658 IMU sensor library
+        echo "Downloading QMI8658 library..."
+        wget -q -O qmi8658.zip https://github.com/haechi/QMI8658/archive/refs/heads/main.zip
+        if [ -f qmi8658.zip ] && unzip -q qmi8658.zip; then
+          mv QMI8658-main QMI8658 2>/dev/null || true
+          rm qmi8658.zip
+        fi
 
     - name: Create secrets.h from example
       run: |
