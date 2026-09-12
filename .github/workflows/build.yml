@@ -1,0 +1,79 @@
+name: Build Firmware
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'firmware/**'
+      - '.github/workflows/build.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'firmware/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Arduino CLI
+      uses: arduino/setup-arduino-cli@v1
+
+    - name: Configure Arduino CLI
+      run: |
+        mkdir -p ~/.arduino15/libraries
+        arduino-cli core install esp32:esp32@3.0.0
+
+    - name: Install dependencies
+      run: |
+        arduino-cli lib install "WiFiManager" "ArduinoJson" "PNGdec" "AnimatedGIF" "JPEGDEC" "SpotifyArduino"
+
+    - name: Create secrets.h from example
+      run: |
+        cp firmware/DeskMatrix/secrets.h.example firmware/DeskMatrix/secrets.h
+
+    - name: Compile firmware
+      run: |
+        arduino-cli compile \
+          --fqbn esp32:esp32:esp32s3:FlashSize=32M,PSRAM=opi,PartitionScheme=app5M_little24M_32MB,CDCOnBoot=cdc \
+          --output-dir build \
+          firmware/DeskMatrix/DeskMatrix.ino
+
+    - name: Upload firmware artifact
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: DeskMatrix-firmware
+        path: build/DeskMatrix.ino.bin
+        retention-days: 30
+
+    - name: Check build size
+      run: |
+        ls -lh build/DeskMatrix.ino.bin
+        echo "Firmware size:"
+        stat -f%z build/DeskMatrix.ino.bin 2>/dev/null || stat -c%s build/DeskMatrix.ino.bin
+
+    - name: Create Release (on main branch)
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main' && success()
+      uses: softprops/action-gh-release@v1
+      with:
+        files: build/DeskMatrix.ino.bin
+        tag_name: firmware-${{ github.run_number }}
+        name: Firmware Build ${{ github.run_number }}
+        body: |
+          Automated firmware build from commit ${{ github.sha }}
+
+          To flash this firmware:
+          ```bash
+          curl -u admin:PASSWORD --data-binary @DeskMatrix.ino.bin http://<device-ip>/api/ota
+          ```
+
+          Or upload via the web UI at `http://<device-ip>/` (Device → Firmware Update section)
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

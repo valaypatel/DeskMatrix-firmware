@@ -167,6 +167,21 @@ button:hover{background:#444}
 
 <section>
 <h2>Device</h2>
+<h3 style="margin-top:0;font-size:1em;color:#555">Firmware Update</h3>
+<p style="margin:0 0 .8em;font-size:.9em;color:#555">Upload a new firmware .bin file to update over-the-air. Device will restart automatically.</p>
+<input type="file" id="firmwareFile" accept=".bin" style="margin-bottom:.8em">
+<div style="display:flex;gap:.5em">
+<button type="button" id="firmwareUploadBtn">Upload Firmware</button>
+<button type="button" id="firmwareCancelBtn" disabled style="background:#999">Cancel</button>
+</div>
+<div id="firmwareProgress" style="display:none;margin:.8em 0">
+<div style="background:#eee;border-radius:4px;overflow:hidden;height:24px">
+<div id="firmwareProgressBar" style="background:#222;height:100%;width:0;transition:width 0.3s;display:flex;align-items:center;justify-content:center;font-size:.8em;color:#fff">0%</div>
+</div>
+</div>
+<div class="status" id="firmwareStatus"></div>
+
+<h3 style="margin-top:1.5em;font-size:1em;color:#555">Shutdown</h3>
 <p style="margin:0 0 .8em;font-size:.9em;color:#555">Before unplugging the device, use this to make sure nothing is mid-write to flash.</p>
 <button type="button" id="shutdownBtn" style="background:#b00020">Safe to unplug</button>
 <div class="status" id="shutdownStatus"></div>
@@ -356,6 +371,80 @@ document.getElementById('brightness').addEventListener('input', e => {
       status.className = res.ok ? 'status ok' : 'status err';
     } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
   }, 300);
+});
+
+let firmwareUploadActive = false;
+document.getElementById('firmwareUploadBtn').addEventListener('click', async () => {
+  const file = document.getElementById('firmwareFile').files[0];
+  if (!file) { alert('Choose a .bin file first'); return; }
+  if (!confirm('Upload new firmware? Device will restart automatically. Do not power off during upload.')) return;
+
+  firmwareUploadActive = true;
+  const status = document.getElementById('firmwareStatus');
+  const progress = document.getElementById('firmwareProgress');
+  const progressBar = document.getElementById('firmwareProgressBar');
+  const uploadBtn = document.getElementById('firmwareUploadBtn');
+  const cancelBtn = document.getElementById('firmwareCancelBtn');
+
+  status.textContent = 'Uploading...'; status.className = 'status';
+  progress.style.display = 'block';
+  uploadBtn.disabled = true;
+  cancelBtn.disabled = false;
+
+  try {
+    const xhr = new XMLHttpRequest();
+    const credentials = btoa('admin:' + (document.getElementById('brightness').disabled ? 'REDACTED_PASSWORD' : 'password'));
+    xhr.setRequestHeader('Authorization', 'Basic ' + credentials);
+
+    xhr.upload.addEventListener('progress', e => {
+      if (e.lengthComputable) {
+        const pct = Math.round((e.loaded / e.total) * 100);
+        progressBar.style.width = pct + '%';
+        progressBar.textContent = pct + '%';
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      if (!firmwareUploadActive) return;
+      if (xhr.status === 200) {
+        status.textContent = 'Upload complete - device restarting...'; status.className = 'status ok';
+        setTimeout(() => { status.textContent = 'Device should be back online in ~10 seconds.'; }, 1000);
+      } else {
+        status.textContent = 'Upload failed (status ' + xhr.status + '), device should still be working.'; status.className = 'status err';
+      }
+      progress.style.display = 'none';
+      uploadBtn.disabled = false;
+      cancelBtn.disabled = true;
+      firmwareUploadActive = false;
+    });
+
+    xhr.addEventListener('error', () => {
+      if (!firmwareUploadActive) return;
+      status.textContent = 'Upload failed - connection error'; status.className = 'status err';
+      progress.style.display = 'none';
+      uploadBtn.disabled = false;
+      cancelBtn.disabled = true;
+      firmwareUploadActive = false;
+    });
+
+    xhr.open('POST', '/api/ota');
+    xhr.send(file);
+  } catch (err) {
+    status.textContent = 'Error: ' + err; status.className = 'status err';
+    progress.style.display = 'none';
+    uploadBtn.disabled = false;
+    cancelBtn.disabled = true;
+    firmwareUploadActive = false;
+  }
+});
+
+document.getElementById('firmwareCancelBtn').addEventListener('click', () => {
+  firmwareUploadActive = false;
+  document.getElementById('firmwareStatus').textContent = 'Cancelled.';
+  document.getElementById('firmwareStatus').className = 'status';
+  document.getElementById('firmwareProgress').style.display = 'none';
+  document.getElementById('firmwareUploadBtn').disabled = false;
+  document.getElementById('firmwareCancelBtn').disabled = true;
 });
 </script>
 </body></html>
