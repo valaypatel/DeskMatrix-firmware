@@ -110,6 +110,8 @@ Edit `secrets.h` and set a strong password for web access:
 
 ### 3. Build & Upload
 
+**Note:** GitHub Actions CI builds are currently a work-in-progress (external libraries not auto-installing). Build locally using Arduino CLI or IDE instead.
+
 Using Arduino CLI:
 
 ```bash
