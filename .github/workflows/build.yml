@@ -32,10 +32,10 @@ jobs:
       run: |
         arduino-cli lib install "WiFiManager" "ArduinoJson" "PNGdec" "AnimatedGIF" "JPEGDEC"
 
-        # Install SpotifyArduino from GitHub (download ZIP, more reliable than clone)
+        # Install SpotifyArduino from GitHub releases
         mkdir -p "$HOME/Arduino/libraries"
         cd "$HOME/Arduino/libraries"
-        curl -L -o SpotifyArduino.zip https://github.com/MartinMueller2003/SpotifyArduino/archive/refs/heads/main.zip
+        curl -L -o SpotifyArduino.zip https://codeload.github.com/MartinMueller2003/SpotifyArduino/zip/refs/heads/main
         unzip -q SpotifyArduino.zip
         mv SpotifyArduino-main SpotifyArduino
         rm SpotifyArduino.zip
