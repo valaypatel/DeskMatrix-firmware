@@ -12,6 +12,8 @@
 #include <JPEGDEC.h>
 #include <vector>
 #include <cmath>
+#include <new>
+#include "esp_heap_caps.h"
 
 namespace {
 constexpr int kSize = 64;                 // panel is fixed 64x64 (config.h)
@@ -25,12 +27,24 @@ constexpr float kDegreesPerTick = 6.0f;   // spin speed: full rotation every ~6s
 constexpr unsigned long kTickMs = 100;    // redraw cadence while on this screen
 
 std::string g_lastDrawnUrl;
-uint16_t g_albumRGB565[kSize * kSize];    // decoded album art, source for the spinning render
+// Decoded album art, source for the spinning render. Lazily placed in
+// PSRAM on first use, like the other decoder buffers -- see the
+// RAM-vs-Spotify-TLS note in ScreensaverScreen.cpp.
+uint16_t* albumRGB565() {
+    static uint16_t* p = (uint16_t*)heap_caps_malloc(kSize * kSize * sizeof(uint16_t), MALLOC_CAP_SPIRAM);
+    return p;
+}
+#define g_albumRGB565 albumRGB565()
 bool g_albumValid = false;
 float g_angleDeg = 0.0f;
 unsigned long g_nextTickMs = 0;
 
-JPEGDEC g_jpeg;
+// JPEGDEC's decode state is ~17.5KB -- see the same RAM-vs-Spotify-TLS note.
+JPEGDEC& jpeg() {
+    static JPEGDEC* p = new (heap_caps_malloc(sizeof(JPEGDEC), MALLOC_CAP_SPIRAM)) JPEGDEC();
+    return *p;
+}
+#define g_jpeg jpeg()
 
 int onJpegDraw(JPEGDRAW* pDraw) {
     for (int row = 0; row < pDraw->iHeight; row++) {

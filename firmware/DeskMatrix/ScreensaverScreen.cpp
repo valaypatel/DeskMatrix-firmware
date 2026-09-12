@@ -4,6 +4,8 @@
 #include <LittleFS.h>
 #include <cstring>
 #include <string>
+#include <new>
+#include "esp_heap_caps.h"
 
 namespace {
 constexpr int kSize = 64; // panel is fixed 64x64 (config.h)
@@ -19,7 +21,15 @@ const char* kDndPath = "/dnd.gif";
 // exact purpose once before and pushed RAM usage from 33% to 48%, which
 // broke Spotify's TLS handshake (see the "custom image" work this session
 // that was reverted) — this shared-instance design avoids that entirely.
-AnimatedGIF g_gif;
+// AnimatedGIF's decode state is ~24KB -- as a plain global it was internal
+// RAM that's needed elsewhere (see the RAM-vs-Spotify-TLS note above).
+// Lazily placed in PSRAM on first use; the reference lets every existing
+// `g_gif.foo()` call site stay unchanged.
+AnimatedGIF& gif() {
+    static AnimatedGIF* p = new (heap_caps_malloc(sizeof(AnimatedGIF), MALLOC_CAP_SPIRAM)) AnimatedGIF();
+    return *p;
+}
+#define g_gif gif()
 File g_gifFile;
 bool g_loaded = false;
 std::string g_loadedPath; // which path is currently loaded, empty if none
@@ -42,7 +52,11 @@ bool g_screensaverLoopCompleted = false;
 // frame sidesteps the ping-pong entirely, while still fixing the earlier
 // leftover-content-from-the-previous-screen bug (clear the canvas once on
 // load, never mid-playback).
-uint16_t g_canvas[kSize * kSize];
+uint16_t* canvas() {
+    static uint16_t* p = (uint16_t*)heap_caps_malloc(kSize * kSize * sizeof(uint16_t), MALLOC_CAP_SPIRAM);
+    return p;
+}
+#define g_canvas canvas()
 
 void* gifOpen(const char* filename, int32_t* size) {
     g_gifFile = LittleFS.open(filename, "r");
@@ -145,7 +159,7 @@ bool loadPath(const char* path) {
     // one that doesn't repaint every pixel every frame (delta encoding —
     // see the canvas comment above), would otherwise leave whatever the
     // previous screen (or previous GIF) drew showing through.
-    memset(g_canvas, 0, sizeof(g_canvas));
+    memset(g_canvas, 0, kSize * kSize * sizeof(uint16_t));
     if (!LittleFS.exists(path)) return false;
     if (!openGifFile(path)) return false;
     g_loadedPath = path;

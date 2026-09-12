@@ -57,6 +57,19 @@ void SpotifyService::poll() {
     static SpotifyArduino* spotify = nullptr;
     static std::string lastClientId, lastRefreshToken;
     static bool lastRefreshOk = false;
+    static unsigned long nextRetryAllowedMs = 0;
+    static int consecutiveFailures = 0;
+
+    if (!spotify || lastClientId != clientId_ || lastRefreshToken != refreshToken_) {
+        // Credentials just changed (including the first call ever) — retry
+        // immediately and forget any backoff from a previous, now-irrelevant
+        // set of credentials.
+        nextRetryAllowedMs = 0;
+        consecutiveFailures = 0;
+    }
+    if (!lastRefreshOk && millis() < nextRetryAllowedMs) {
+        return; // backing off after repeated failures; see below
+    }
 
     // Re-create the SpotifyArduino instance whenever credentials actually
     // change (including the first call) — the library takes them by pointer
@@ -80,20 +93,46 @@ void SpotifyService::poll() {
         // entire main loop() -- freezing the display and the config web
         // server -- for up to 2.5 minutes per attempt (confirmed on real
         // hardware: enabling Spotify with a bad network path froze the
-        // matrix and made the config page unreachable). Bounding both to a
-        // few seconds means a failing poll only costs a few seconds, not
-        // minutes, leaving the rest of loop() (display, HTTP) running
-        // normally in between.
-        client.setConnectionTimeout(4000);
-        client.setHandshakeTimeout(5); // seconds, per NetworkClientSecure::setHandshakeTimeout
+        // matrix and made the config page unreachable). A first pass bounded
+        // both to ~4s/5s, but that was too tight for this network's real
+        // round-trip to Spotify's servers: the one connection that succeeded
+        // during the original incident took up to ~25s. 10s/10s (~20s worst
+        // case) still bounds a single failed attempt far below the original
+        // 2.5-minute freeze, while giving a genuinely slow-but-working
+        // connection a real chance -- and with the exponential backoff below,
+        // a 20s stall only happens once every 10s-2min, not every poll.
+        client.setConnectionTimeout(10000);
+        client.setHandshakeTimeout(10); // seconds, per NetworkClientSecure::setHandshakeTimeout
         spotify = new SpotifyArduino(client, clientId_.c_str(), clientSecret_.c_str(), refreshToken_.c_str());
         lastRefreshOk = spotify->refreshAccessToken();
         if (!lastRefreshOk) {
-            Serial.println("[spotify] failed to refresh access token, will retry next poll");
+            // SpotifyArduino's connect() failure path returns without
+            // calling client.stop() (confirmed in the vendored library
+            // source), leaking a partial socket/TLS context on `client`
+            // every failed attempt. Left unchecked at the previous
+            // every-pollSec retry rate, repeated failures (e.g. a bad
+            // refresh token) exhaust the device's small pool of TLS
+            // sessions/heap fast enough to degrade unrelated network
+            // activity -- confirmed on real hardware: the config web server
+            // became unreliable, and in one run the whole device hung,
+            // purely from Spotify's connect() retries failing repeatedly.
+            // Cleaning up here plus backing off (below) keeps failed
+            // attempts rare and each one self-contained.
+            client.stop();
+            consecutiveFailures++;
+            // Exponential backoff (pollSec, then 2x, 4x, ... capped at 2
+            // minutes) instead of retrying every single poll.
+            unsigned long backoffMs = (unsigned long)pollSec_ * 1000UL * (1UL << (consecutiveFailures < 5 ? consecutiveFailures : 5));
+            if (backoffMs > 120000UL) backoffMs = 120000UL;
+            nextRetryAllowedMs = millis() + backoffMs;
+            Serial.printf("[spotify] failed to refresh access token, backing off %lums\n", backoffMs);
+        } else {
+            consecutiveFailures = 0;
         }
         lastClientId = clientId_;
         lastRefreshToken = refreshToken_;
     }
+    if (!lastRefreshOk) return; // nothing more to do until the backoff above expires
 
     g_pendingIsPlaying = false;
     g_pendingArtUrl.clear();

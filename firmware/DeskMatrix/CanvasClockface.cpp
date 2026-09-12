@@ -7,6 +7,7 @@
 #include "mbedtls/base64.h"
 #include "esp_heap_caps.h"
 #include <cstring>
+#include <new>
 
 #include "EzTimeFormat.h"
 
@@ -15,7 +16,17 @@ namespace {
 // constructed at a time (main/loop task), so a single static decoder
 // instance is safe -- same approach Clockwise's own upstream Canvas
 // clockface uses (jnthas/cw-cf-0x07's PNGRender.h).
-PNG g_png;
+//
+// PNGDEC's decode state is ~44KB -- as a plain global it was internal RAM
+// that's needed elsewhere (confirmed on real hardware: internal free heap
+// was too tight for WiFiClientSecure's TLS handshake to Spotify's servers
+// to even start). Lazily placed in PSRAM on first use instead; the
+// reference lets every existing `g_png.foo()` call site stay unchanged.
+PNG& png() {
+    static PNG* p = new (heap_caps_malloc(sizeof(PNG), MALLOC_CAP_SPIRAM)) PNG();
+    return *p;
+}
+#define g_png png()
 bool g_pngDrawDirect = false;
 Adafruit_GFX* g_pngDrawTarget = nullptr;
 int16_t g_pngDrawX = 0;
