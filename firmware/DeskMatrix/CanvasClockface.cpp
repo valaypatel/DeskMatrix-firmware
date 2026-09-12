@@ -52,14 +52,12 @@ bool base64DecodeGuarded(const std::string& base64, std::vector<uint8_t>& outRaw
     // and sets neededLen -- that "failure" is expected and intentionally ignored.
     mbedtls_base64_decode(nullptr, 0, &neededLen, (const unsigned char*)base64.data(), base64.size());
     if (neededLen == 0 || neededLen > 8192) {
-        Serial.printf("[canvas] base64 decode rejected: implausible size (%u bytes)\n", (unsigned)neededLen);
         return false;
     }
     outRaw.resize(neededLen);
     size_t actualLen = 0;
     if (mbedtls_base64_decode(outRaw.data(), outRaw.size(), &actualLen,
                                (const unsigned char*)base64.data(), base64.size()) != 0) {
-        Serial.println("[canvas] base64 decode failed");
         return false;
     }
     outRaw.resize(actualLen);
@@ -70,7 +68,6 @@ bool base64DecodeGuarded(const std::string& base64, std::vector<uint8_t>& outRaw
 CanvasClockface::CanvasClockface(Adafruit_GFX* display, const char* themeJson) : display_(display) {
     JsonDocument doc;
     if (deserializeJson(doc, themeJson)) {
-        Serial.println("[canvas] theme JSON parse failed");
         valid_ = false;
         return;
     }
@@ -83,8 +80,6 @@ CanvasClockface::CanvasClockface(Adafruit_GFX* display, const char* themeJson) :
     for (JsonVariantConst item : doc["setup"].as<JsonArrayConst>()) {
         SetupElement el;
         if (!parseSetupElement(item, el)) {
-            const char* type = item["type"] | "";
-            Serial.printf("[canvas] unrecognized setup element type: %s\n", type);
             continue;
         }
         setupElements_.push_back(el);
@@ -126,7 +121,6 @@ CanvasClockface::CanvasClockface(Adafruit_GFX* display, const char* themeJson) :
         }
         SetupElement el;
         if (!parseSetupElement(item, el)) {
-            Serial.printf("[canvas] unrecognized loop element type: %s\n", type);
             continue;
         }
         if (el.type == SetupElement::DATETIME) {
@@ -143,7 +137,6 @@ CanvasClockface::CanvasClockface(Adafruit_GFX* display, const char* themeJson) :
             // as ~50x/sec) would be a hot-path decode loop plus repeated
             // [canvas] failure logging on a malformed image. Not supported
             // in loop[]; use setup[] for a static image instead.
-            Serial.println("[canvas] image not supported in loop[], use setup[] instead");
         } else {
             loopElements_.push_back(el);
         }
@@ -199,20 +192,17 @@ bool CanvasClockface::loadSpriteFrame(const std::string& base64, SpriteFrame& ou
     if (!base64DecodeGuarded(base64, raw)) return false;
 
     if (g_png.openRAM(raw.data(), (int)raw.size(), pngDrawCallback) != PNG_SUCCESS) {
-        Serial.println("[canvas] sprite PNG open failed");
         return false;
     }
     int w = g_png.getWidth();
     int h = g_png.getHeight();
     if (w <= 0 || h <= 0 || w > 64 || h > 64) {
-        Serial.printf("[canvas] sprite dimensions out of range: %dx%d\n", w, h);
         g_png.close();
         return false;
     }
 
     uint16_t* pixels = (uint16_t*)heap_caps_malloc((size_t)w * h * 2, MALLOC_CAP_SPIRAM);
     if (pixels == nullptr) {
-        Serial.println("[canvas] sprite PSRAM allocation failed");
         g_png.close();
         return false;
     }
@@ -224,7 +214,6 @@ bool CanvasClockface::loadSpriteFrame(const std::string& base64, SpriteFrame& ou
     bool ok = (g_png.decode(nullptr, 0) == PNG_SUCCESS);
     g_png.close();
     if (!ok) {
-        Serial.println("[canvas] sprite PNG decode failed");
         heap_caps_free(pixels);
         return false;
     }
@@ -280,13 +269,11 @@ void CanvasClockface::renderImageElement(const SetupElement& el) {
     std::vector<uint8_t> raw;
     if (!base64DecodeGuarded(el.content, raw)) return;
     if (g_png.openRAM(raw.data(), (int)raw.size(), pngDrawCallback) != PNG_SUCCESS) {
-        Serial.println("[canvas] image PNG open failed");
         return;
     }
     int w = g_png.getWidth();
     int h = g_png.getHeight();
     if (w <= 0 || h <= 0 || w > 64 || h > 64) {
-        Serial.printf("[canvas] image dimensions out of range: %dx%d\n", w, h);
         g_png.close();
         return;
     }
