@@ -11,7 +11,11 @@
 
 #include "screens/clockfaces/mario/Clockface.h"
 #include "screens/clockfaces/words/Clockface.h"
+#include "screens/clockfaces/canvas/CanvasClockface.h"
+#include "screens/clockfaces/canvas/presets/nyancat.json.h"
+#include "screens/clockfaces/canvas/presets/starwars.json.h"
 #include "screens/clockfaces/pacman/Clockface.h"
+#include "ConfigModel.h"
 
 #include "config.h"
 
@@ -22,6 +26,11 @@
 // interface it's called with no display argument (mirrors
 // loadScreensaverGif()'s signature), so it reaches for the global directly.
 extern MatrixPanel_I2S_DMA* dma_display;
+
+// Declared in DeskMatrix.ino. loadClockFace("canvas") needs the user's
+// pasted theme JSON, which lives here rather than being passed as a
+// parameter -- mirrors how this file already reaches for dma_display.
+extern AppConfig appConfig;
 
 namespace {
 // Shared across whichever clockface is active — begin() only needs calling
@@ -49,7 +58,11 @@ GFXcanvas16 g_canvas(PANEL_RES_X, PANEL_RES_Y);
 }  // namespace
 
 void loadClockFace(const std::string& name) {
-  std::string resolved = (name == "words" || name == "pacman") ? name : "mario";
+  std::string resolved = name;
+  if (resolved != "words" && resolved != "pacman" && resolved != "canvas" &&
+      resolved != "nyancat" && resolved != "starwars") {
+    resolved = "mario";
+  }
   if (g_activeClockface != nullptr && resolved == g_activeName) return; // already active: no-op
 
   if (!g_dateTimeStarted) {
@@ -57,21 +70,36 @@ void loadClockFace(const std::string& name) {
     g_dateTimeStarted = true;
   }
 
-  delete g_activeClockface; // IClockface has a virtual destructor — see lib/cw-commons/IClockface.h
+  delete g_activeClockface; // IClockface has a virtual destructor -- see lib/cw-commons/IClockface.h
   g_activeClockface = nullptr;
 
-  if (dma_display == nullptr) return; // called before initPanel(); caller error — bail safely, retried on next drawClockFrame()
+  if (dma_display == nullptr) return; // called before initPanel(); caller error -- bail safely, retried on next drawClockFrame()
 
-  // Clockfaces draw onto the persistent canvas, not dma_display directly —
+  // Clockfaces draw onto the persistent canvas, not dma_display directly --
   // see g_canvas's comment above.
+  g_canvas.fillScreen(0);
   if (resolved == "words") {
     g_activeClockface = new WordsClockface(&g_canvas);
   } else if (resolved == "pacman") {
     g_activeClockface = new PacmanClockface(&g_canvas);
+  } else if (resolved == "nyancat") {
+    g_activeClockface = new CanvasClockface(&g_canvas, kNyanCatJson);
+  } else if (resolved == "starwars") {
+    g_activeClockface = new CanvasClockface(&g_canvas, kStarWarsJson);
+  } else if (resolved == "canvas") {
+    auto* canvasFace = new CanvasClockface(&g_canvas, appConfig.canvasJson.c_str());
+    if (!canvasFace->isValid()) {
+      // Malformed/empty pasted theme: fall back to Mario rather than a
+      // blank/corrupt screen.
+      delete canvasFace;
+      g_activeClockface = new MarioClockface(&g_canvas);
+      resolved = "mario";
+    } else {
+      g_activeClockface = canvasFace;
+    }
   } else {
     g_activeClockface = new MarioClockface(&g_canvas);
   }
-  g_canvas.fillScreen(0);
   g_activeClockface->setup(&g_dateTime);
   g_activeName = resolved;
 }
