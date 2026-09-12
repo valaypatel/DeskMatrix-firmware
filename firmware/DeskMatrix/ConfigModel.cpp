@@ -2,6 +2,31 @@
 #include "ConfigModel.h"
 #include <ArduinoJson.h>
 
+namespace {
+// Empty is always valid (no custom theme configured yet). Otherwise: size
+// capped at 64KB (comfortably above the largest known real clock-club
+// theme, ~13.5KB), must be valid JSON, and must have a 'setup' or 'loop'
+// array -- catches an empty-object paste or a copy-paste of the wrong
+// thing without needing a full CanvasClockface parse here.
+bool isValidCanvasJson(const std::string& json, std::string& error) {
+    if (json.empty()) return true;
+    if (json.size() > 65536) {
+        error = "canvasJson exceeds 64KB limit";
+        return false;
+    }
+    JsonDocument doc;
+    if (deserializeJson(doc, json)) {
+        error = "canvasJson is not valid JSON";
+        return false;
+    }
+    if (!doc["setup"].is<JsonArray>() && !doc["loop"].is<JsonArray>()) {
+        error = "canvasJson must have a 'setup' or 'loop' array";
+        return false;
+    }
+    return true;
+}
+}  // namespace
+
 bool parseConfig(const std::string& json, AppConfig& out, std::string& error) {
     JsonDocument doc;
     DeserializationError err = deserializeJson(doc, json);
@@ -31,6 +56,14 @@ bool parseConfig(const std::string& json, AppConfig& out, std::string& error) {
     if (tzOffset > 840) tzOffset = 840;   // UTC+14:00
     out.timezoneOffsetMinutes = tzOffset;
 
+    std::string canvasJson = std::string(doc["canvasJson"] | "");
+    std::string canvasError;
+    if (!isValidCanvasJson(canvasJson, canvasError)) {
+        error = canvasError;
+        return false;
+    }
+    out.canvasJson = canvasJson;
+
     out.sleep = doc["sleep"] | false;
 
     return true;
@@ -51,6 +84,7 @@ std::string serializeConfig(const AppConfig& config) {
     doc["clockFace"] = config.clockFace;
     doc["brightness"] = config.brightness;
     doc["timezoneOffsetMinutes"] = config.timezoneOffsetMinutes;
+    doc["canvasJson"] = config.canvasJson;
     doc["sleep"] = config.sleep;
 
     std::string out;

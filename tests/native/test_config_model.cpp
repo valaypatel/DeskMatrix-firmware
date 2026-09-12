@@ -61,5 +61,38 @@ int main() {
     CHECK_EQ(reparsed.dndArt, cfg.dndArt);
     CHECK_EQ(reparsed.brightness, cfg.brightness);
 
+    // canvasJson: absent defaults to empty, no error
+    AppConfig noCanvas;
+    std::string noCanvasErr;
+    CHECK(parseConfig(R"({})", noCanvas, noCanvasErr));
+    CHECK_EQ(noCanvas.canvasJson, "");
+
+    // canvasJson: valid theme JSON round-trips through parse -> serialize -> parse
+    AppConfig withCanvas;
+    withCanvas.canvasJson = R"({"setup":[{"type":"rect","x":0,"y":0,"width":10,"height":10,"color":1}]})";
+    std::string withCanvasSerialized = serializeConfig(withCanvas);
+    AppConfig reparsedCanvas;
+    std::string reparsedCanvasErr;
+    CHECK(parseConfig(withCanvasSerialized, reparsedCanvas, reparsedCanvasErr));
+    CHECK_EQ(reparsedCanvas.canvasJson, withCanvas.canvasJson);
+
+    // canvasJson: over 64KB is rejected
+    AppConfig oversizedCanvas;
+    oversizedCanvas.canvasJson = std::string(70000, 'x');
+    std::string oversizedSerialized = serializeConfig(oversizedCanvas);
+    AppConfig rejectedCanvas;
+    std::string rejectedCanvasErr;
+    CHECK(!parseConfig(oversizedSerialized, rejectedCanvas, rejectedCanvasErr));
+    CHECK(!rejectedCanvasErr.empty());
+
+    // canvasJson: valid JSON but missing setup/loop arrays is rejected
+    AppConfig badStructureCfg;
+    badStructureCfg.canvasJson = R"({"name":"missing setup and loop"})";
+    std::string badStructureSerialized = serializeConfig(badStructureCfg);
+    AppConfig rejectedStructure;
+    std::string rejectedStructureErr;
+    CHECK(!parseConfig(badStructureSerialized, rejectedStructure, rejectedStructureErr));
+    CHECK(!rejectedStructureErr.empty());
+
     TEST_SUMMARY();
 }
