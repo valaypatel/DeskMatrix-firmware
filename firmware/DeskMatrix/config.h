@@ -10,9 +10,9 @@
 #define IP_DISPLAY_SECONDS 10
 
 // HTTP Basic Auth for the config web page and its API (GET /, /api/*).
-// No username was specified when this was requested, so "admin" was chosen.
-#define CONFIG_AUTH_USER "admin"
-#define CONFIG_AUTH_PASS "CHANGE_ME_IN_SECRETS_H"
+// These credentials are defined in secrets.h (which is git-ignored).
+// Copy secrets.h.example to secrets.h and customize before building.
+#include "secrets.h"
 
 // Timezone is now configurable live from the config page (AppConfig.
 // timezoneOffsetMinutes, see ConfigModel.h) rather than a fixed build-time

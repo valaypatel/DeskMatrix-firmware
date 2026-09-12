@@ -1,3 +1,9 @@
 .worktrees/
 .superpowers/
 tools/__pycache__/
+
+# Credentials and secrets
+firmware/DeskMatrix/secrets.h
+.env
+*.env
+*.env.local
