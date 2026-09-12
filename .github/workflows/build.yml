@@ -30,7 +30,11 @@ jobs:
 
     - name: Install dependencies
       run: |
-        arduino-cli lib install "WiFiManager" "ArduinoJson" "PNGdec" "AnimatedGIF" "JPEGDEC" "SpotifyArduino"
+        arduino-cli lib install "WiFiManager" "ArduinoJson" "PNGdec" "AnimatedGIF" "JPEGDEC"
+
+        # Install SpotifyArduino from GitHub since it's not in the standard registry
+        mkdir -p "$HOME/Arduino/libraries"
+        git clone https://github.com/MartinMueller2003/SpotifyArduino.git "$HOME/Arduino/libraries/SpotifyArduino"
 
     - name: Create secrets.h from example
       run: |
