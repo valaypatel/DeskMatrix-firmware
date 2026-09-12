@@ -11,6 +11,7 @@ bool parseConfig(const std::string& json, AppConfig& out, std::string& error) {
     }
 
     JsonObject spotify = doc["spotify"].as<JsonObject>();
+    out.spotify.enabled = spotify["enabled"] | true;
     out.spotify.clientId = std::string(spotify["clientId"] | "");
     out.spotify.clientSecret = std::string(spotify["clientSecret"] | "");
     out.spotify.refreshToken = std::string(spotify["refreshToken"] | "");
@@ -30,6 +31,8 @@ bool parseConfig(const std::string& json, AppConfig& out, std::string& error) {
     if (tzOffset > 840) tzOffset = 840;   // UTC+14:00
     out.timezoneOffsetMinutes = tzOffset;
 
+    out.sleep = doc["sleep"] | false;
+
     return true;
 }
 
@@ -37,6 +40,7 @@ std::string serializeConfig(const AppConfig& config) {
     JsonDocument doc;
 
     JsonObject spotify = doc["spotify"].to<JsonObject>();
+    spotify["enabled"] = config.spotify.enabled;
     spotify["clientId"] = config.spotify.clientId;
     spotify["clientSecret"] = config.spotify.clientSecret;
     spotify["refreshToken"] = config.spotify.refreshToken;
@@ -47,6 +51,7 @@ std::string serializeConfig(const AppConfig& config) {
     doc["clockFace"] = config.clockFace;
     doc["brightness"] = config.brightness;
     doc["timezoneOffsetMinutes"] = config.timezoneOffsetMinutes;
+    doc["sleep"] = config.sleep;
 
     std::string out;
     serializeJson(doc, out);

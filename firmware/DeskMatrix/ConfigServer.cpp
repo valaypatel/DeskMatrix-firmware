@@ -71,6 +71,12 @@ button:hover{background:#444}
 </section>
 
 <section>
+<h2>Spotify</h2>
+<label><input type="checkbox" id="spotifyEnabled" style="width:auto;margin-right:.5em"> Enable Spotify now-playing takeover</label>
+<div class="status" id="spotifyEnabledStatus"></div>
+</section>
+
+<section>
 <h2>Clock face</h2>
 <label>Idle-screen clock (shown between screensaver GIF interludes)</label>
 <select id="clockFace" style="width:100%;padding:.5em;margin-bottom:.4em;box-sizing:border-box">
@@ -134,6 +140,12 @@ button:hover{background:#444}
 </section>
 
 <section>
+<h2>Sleep</h2>
+<label><input type="checkbox" id="sleepEnabled" style="width:auto;margin-right:.5em"> Screen off (Wi-Fi and Spotify polling stay on; auto-wakes on Spotify playback)</label>
+<div class="status" id="sleepEnabledStatus"></div>
+</section>
+
+<section>
 <h2>Device</h2>
 <p style="margin:0 0 .8em;font-size:.9em;color:#555">Before unplugging the device, use this to make sure nothing is mid-write to flash.</p>
 <button type="button" id="shutdownBtn" style="background:#b00020">Safe to unplug</button>
@@ -151,6 +163,32 @@ getConfig().then(cfg => {
   document.getElementById('brightnessVal').textContent = cfg.brightness;
   document.getElementById('clockFace').value = cfg.clockFace || 'mario';
   document.getElementById('timezone').value = cfg.timezoneOffsetMinutes || 0;
+  document.getElementById('spotifyEnabled').checked = cfg.spotify ? cfg.spotify.enabled !== false : true;
+  document.getElementById('sleepEnabled').checked = !!cfg.sleep;
+});
+
+document.getElementById('sleepEnabled').addEventListener('change', async e => {
+  const status = document.getElementById('sleepEnabledStatus');
+  status.textContent = 'Saving...'; status.className = 'status';
+  try {
+    const cfg = await getConfig();
+    cfg.sleep = e.target.checked;
+    const res = await putConfig(cfg);
+    status.textContent = res.ok ? 'Saved.' : 'Failed to save.';
+    status.className = res.ok ? 'status ok' : 'status err';
+  } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
+});
+
+document.getElementById('spotifyEnabled').addEventListener('change', async e => {
+  const status = document.getElementById('spotifyEnabledStatus');
+  status.textContent = 'Saving...'; status.className = 'status';
+  try {
+    const cfg = await getConfig();
+    cfg.spotify.enabled = e.target.checked;
+    const res = await putConfig(cfg);
+    status.textContent = res.ok ? 'Saved.' : 'Failed to save.';
+    status.className = res.ok ? 'status ok' : 'status err';
+  } catch (err) { status.textContent = 'Request failed: ' + err; status.className = 'status err'; }
 });
 
 document.getElementById('clockFace').addEventListener('change', async e => {

@@ -175,9 +175,11 @@ void loop() {
     configTime(appConfig.timezoneOffsetMinutes * 60, 0, "pool.ntp.org"); // safe to re-call; applies immediately, no reboot needed
   }
 
-  spotifyService->loop(); // polls continuously regardless of current mode, so a mode switch happens promptly
-
-  SpotifyStatus spotify = spotifyService->latest();
+  SpotifyStatus spotify;
+  if (appConfig.spotify.enabled) {
+    spotifyService->loop(); // polls continuously regardless of current mode, so a mode switch happens promptly
+    spotify = spotifyService->latest();
+  }
   if (spotify.isPlaying) {
     stateMachine.spotifyStarted();
   } else {
@@ -228,6 +230,26 @@ void loop() {
     else stateMachine.tiltCenter();
   }
 #endif
+
+  // Sleep: screen goes black but everything above (Wi-Fi, config server,
+  // Spotify polling, IMU tilt detection) keeps running — unlike the
+  // shutdown-halt above, which freezes the whole loop permanently. Checked
+  // ahead of every mode-based render branch below so it overrides
+  // whatever's currently showing (clock/GIF/DND/BRB/takeover). The one
+  // exception is Spotify: if playback starts while asleep, wake
+  // automatically to show now-playing, then re-sleep once it stops —
+  // appConfig.sleep still reflects the user's stored intent throughout.
+  static bool wasAsleep = false;
+  bool sleepNow = appConfig.sleep && !spotify.isPlaying;
+  if (sleepNow) {
+    if (!wasAsleep) {
+      dma_display->fillScreen(0);
+      dma_display->flipDMABuffer();
+      wasAsleep = true;
+    }
+    return;
+  }
+  wasAsleep = false;
 
   // Idle content: the Mario/Words/Pacman clock (see screens/ClockScreen.*)
   // is the default idle screen; the GIF screensaver now only interrupts it
