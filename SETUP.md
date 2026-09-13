@@ -1,33 +1,56 @@
 # DeskMatrix Firmware Setup
 
-## Before Building
+## Option A: Download a Pre-built Release (fastest)
 
-You need to set up external libraries that aren't available in the Arduino Library Manager:
+Every push to `main` is automatically compiled by GitHub Actions. Grab the
+latest `.bin` from [Releases](../../releases) and flash it — see
+[docs/BUILDING.md](docs/BUILDING.md) for OTA / USB flashing instructions.
+No local library setup needed for this path.
+
+## Option B: Build From Source
+
+### 1. Install Arduino Library Manager dependencies
+
+Most dependencies are in the standard registry and install with one
+command:
 
 ```bash
-# From the repo root:
-mkdir -p firmware/DeskMatrix/lib
-
-# ESP32-HUB75-MatrixPanel-I2S-DMA (display driver)
-git clone https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-I2S-DMA.git \
-  firmware/DeskMatrix/lib/ESP32-HUB75-MatrixPanel-I2S-DMA
-
-# SensorQMI8658 (IMU/tilt sensor - optional)
-git clone https://github.com/haechi/QMI8658.git \
-  firmware/DeskMatrix/lib/QMI8658
-
-# SpotifyArduino (Spotify integration)
-# This library may need to be added manually or is available via:
-# https://github.com/MartinMueller2003/SpotifyArduino
+arduino-cli lib install \
+  "WiFiManager" \
+  "ArduinoJson" \
+  "PNGdec" \
+  "AnimatedGIF" \
+  "JPEGDEC" \
+  "Adafruit GFX Library" \
+  "Adafruit BusIO" \
+  "ESP32 HUB75 LED MATRIX PANEL DMA Display" \
+  "SensorLib"
 ```
 
-Then follow the build instructions in `BUILDING.md` or `README.md`.
+(In Arduino IDE: Library Manager → search and install each by name above.)
 
-## Copy Secrets
+### 2. Install SpotifyArduino manually
+
+This one isn't in the Library Manager registry — clone it directly into
+your Arduino libraries folder:
+
+```bash
+git clone https://github.com/witnessmenow/spotify-api-arduino.git \
+  "$HOME/Arduino/libraries/SpotifyArduino"
+```
+
+### 3. Copy secrets
 
 ```bash
 cp firmware/DeskMatrix/secrets.h.example firmware/DeskMatrix/secrets.h
-# Edit secrets.h with your admin password
+# Edit secrets.h and set your own CONFIG_AUTH_PASS
 ```
+
+`secrets.h` is git-ignored — it will never be committed.
+
+### 4. Build
+
+See [README.md](README.md#3-build--upload) or [docs/BUILDING.md](docs/BUILDING.md)
+for the full `arduino-cli compile`/`upload` commands and board settings.
 
 You're ready to build!

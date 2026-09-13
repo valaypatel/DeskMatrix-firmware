@@ -42,8 +42,15 @@ cd /path/to/RGBMatrix
 # Install board support
 arduino-cli core install esp32:esp32
 
-# Install libraries
-arduino-cli lib install "WiFiManager" "ArduinoJson" "PNGdec" "AnimatedGIF" "JPEGDEC" "SpotifyArduino"
+# Install Library Manager dependencies
+arduino-cli lib install \
+  "WiFiManager" "ArduinoJson" "PNGdec" "AnimatedGIF" "JPEGDEC" \
+  "Adafruit GFX Library" "Adafruit BusIO" \
+  "ESP32 HUB75 LED MATRIX PANEL DMA Display" "SensorLib"
+
+# SpotifyArduino isn't in the Library Manager registry - clone manually
+git clone https://github.com/witnessmenow/spotify-api-arduino.git \
+  "$HOME/Arduino/libraries/SpotifyArduino"
 
 # Set up credentials
 cp firmware/DeskMatrix/secrets.h.example firmware/DeskMatrix/secrets.h
@@ -52,6 +59,7 @@ cp firmware/DeskMatrix/secrets.h.example firmware/DeskMatrix/secrets.h
 # Compile
 arduino-cli compile \
   --fqbn esp32:esp32:esp32s3:FlashSize=32M,PSRAM=opi,PartitionScheme=app5M_little24M_32MB,CDCOnBoot=cdc \
+  --build-property "build.partitions=large_littlefs_32MB" \
   --output-dir build \
   firmware/DeskMatrix/DeskMatrix.ino
 
@@ -66,6 +74,7 @@ ls /dev/cu.usbmodem* 2>/dev/null || ls /dev/ttyACM*
 # Flash
 arduino-cli upload \
   --fqbn esp32:esp32:esp32s3:FlashSize=32M,PSRAM=opi,PartitionScheme=app5M_little24M_32MB,CDCOnBoot=cdc \
+  --build-property "build.partitions=large_littlefs_32MB" \
   --port /dev/cu.usbmodem* \
   firmware/DeskMatrix/DeskMatrix.ino
 ```
@@ -85,14 +94,22 @@ curl -u admin:PASSWORD --data-binary @build/DeskMatrix.ino.bin http://<device-ip
    - PNGdec
    - AnimatedGIF
    - JPEGDEC
-   - SpotifyArduino
-4. Copy `firmware/DeskMatrix/secrets.h.example` to `firmware/DeskMatrix/secrets.h`
-5. Edit `secrets.h` with your admin password
-6. Open `firmware/DeskMatrix/DeskMatrix.ino` in Arduino IDE
-7. Select Board: **ESP32S3 Dev Module**
-8. Set partition scheme: **16M Flash (2MB APP / 12.5MB SPIFFS)**
-9. Click **Compile** (check mark icon)
-10. If building for the first time via USB, click **Upload** (arrow icon)
+   - Adafruit GFX Library
+   - Adafruit BusIO
+   - ESP32 HUB75 LED MATRIX PANEL DMA Display
+   - SensorLib
+4. SpotifyArduino isn't in the Library Manager registry — clone it manually into your Arduino libraries folder:
+   ```bash
+   git clone https://github.com/witnessmenow/spotify-api-arduino.git \
+     "$HOME/Arduino/libraries/SpotifyArduino"
+   ```
+5. Copy `firmware/DeskMatrix/secrets.h.example` to `firmware/DeskMatrix/secrets.h`
+6. Edit `secrets.h` with your admin password
+7. Open `firmware/DeskMatrix/DeskMatrix.ino` in Arduino IDE
+8. Select Board: **ESP32S3 Dev Module**
+9. Set partition scheme: **32MB Flash (4.8MB APP/22MB LittleFS)**
+10. Click **Compile** (check mark icon)
+11. If building for the first time via USB, click **Upload** (arrow icon)
 
 ## Troubleshooting
 
@@ -128,7 +145,7 @@ The correct board configuration for this project:
 | USB Mode | CDC On Boot |
 | Flash Size | 32MB |
 | PSRAM | OPI PSRAM |
-| Partition Scheme | 16M Flash (app 5MB + SPIFFS 24MB) |
+| Partition Scheme | 32MB Flash (4.8MB APP/22MB LittleFS), forced via `build.partitions=large_littlefs_32MB` |
 
 These settings are required for the 16MB PSRAM and LittleFS support.
 
