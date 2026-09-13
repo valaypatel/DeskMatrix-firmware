@@ -1,6 +1,7 @@
 .worktrees/
 .superpowers/
 tools/__pycache__/
+firmware/DeskMatrix/build/
 
 # Credentials and secrets
 firmware/DeskMatrix/secrets.h
