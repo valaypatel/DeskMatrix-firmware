@@ -1,3 +1,0 @@
-/Users/valaypatel/Work/RGBMatrix/emulator/build/CMakeFiles/smoke_test.dir
-/Users/valaypatel/Work/RGBMatrix/emulator/build/CMakeFiles/edit_cache.dir
-/Users/valaypatel/Work/RGBMatrix/emulator/build/CMakeFiles/rebuild_cache.dir
