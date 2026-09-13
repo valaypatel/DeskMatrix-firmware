@@ -6,6 +6,7 @@
 // to be a small signature fix, not a redesign.
 #include "screens/SpotifyScreen.h"
 #include "services/SpotifyService.h"
+#include "PanelPresent.h"
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
@@ -67,7 +68,7 @@ uint16_t colorRGB565(uint8_t r, uint8_t g, uint8_t b) {
 // current g_angleDeg, sampling g_albumRGB565 with an inverse rotation
 // (nearest-neighbor) so the whole disc area stays filled. Mirrors the
 // visual layout of https://github.com/tnarla/spotify-matrix's render_record().
-void renderRecordFrame(MatrixPanel_I2S_DMA* display) {
+void renderRecordFrame(Adafruit_GFX* display) {
     float rad = g_angleDeg * (float)M_PI / 180.0f;
     float cosT = cosf(rad);
     float sinT = sinf(rad);
@@ -104,10 +105,10 @@ void renderRecordFrame(MatrixPanel_I2S_DMA* display) {
             display->drawPixel(x, y, pixel);
         }
     }
-    display->flipDMABuffer();
+    presentFrame(display);
 }
 
-void renderIdleFrame(MatrixPanel_I2S_DMA* display) {
+void renderIdleFrame(Adafruit_GFX* display) {
     for (int y = 0; y < kSize; y++) {
         for (int x = 0; x < kSize; x++) {
             float dx = x - kCenter + 0.5f;
@@ -122,11 +123,11 @@ void renderIdleFrame(MatrixPanel_I2S_DMA* display) {
             display->drawPixel(x, y, pixel);
         }
     }
-    display->flipDMABuffer();
+    presentFrame(display);
 }
 }  // namespace
 
-void drawSpotifyScreen(MatrixPanel_I2S_DMA* display, const std::string& albumArtUrl, bool isPlaying) {
+void drawSpotifyScreen(Adafruit_GFX* display, const std::string& albumArtUrl, bool isPlaying) {
     if (!display) return;
 
     if (albumArtChanged(g_lastDrawnUrl, albumArtUrl)) {

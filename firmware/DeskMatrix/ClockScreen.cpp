@@ -19,13 +19,7 @@
 
 #include "config.h"
 
-// The single display instance owned by DeskMatrix.ino (see initPanel()) —
-// referenced directly here the same way ConfigServer.cpp references
-// `extern WiFiManager wm;`. loadClockFace() needs a display pointer to hand
-// to Locator::provide()/each Clockface's constructor, and per the plan's
-// interface it's called with no display argument (mirrors
-// loadScreensaverGif()'s signature), so it reaches for the global directly.
-extern MatrixPanel_I2S_DMA* dma_display;
+#include "PanelPresent.h"
 
 // Declared in DeskMatrix.ino. loadClockFace("canvas") needs the user's
 // pasted theme JSON, which lives here rather than being passed as a
@@ -77,7 +71,7 @@ void loadClockFace(const std::string& name) {
   delete g_activeClockface; // IClockface has a virtual destructor -- see lib/cw-commons/IClockface.h
   g_activeClockface = nullptr;
 
-  if (dma_display == nullptr) return; // called before initPanel(); caller error -- bail safely, retried on next drawClockFrame()
+  if (g_activeDisplay == nullptr) return; // called before the display is initialized; caller error -- bail safely, retried on next drawClockFrame()
 
   // Clockfaces draw onto the persistent canvas, not dma_display directly --
   // see g_canvas's comment above.
@@ -109,7 +103,7 @@ void loadClockFace(const std::string& name) {
   g_activeName = resolved;
 }
 
-void drawClockFrame(MatrixPanel_I2S_DMA* display) {
+void drawClockFrame(Adafruit_GFX* display) {
   if (g_activeClockface == nullptr) {
     // First call arrived before setup()'s loadClockFace() ran (shouldn't
     // happen in normal boot order, but fail safe rather than crash/blank
@@ -122,5 +116,5 @@ void drawClockFrame(MatrixPanel_I2S_DMA* display) {
   // become visible, so both buffers always show a complete, current
   // frame regardless of double-buffer ping-pong parity.
   display->drawRGBBitmap(0, 0, g_canvas.getBuffer(), PANEL_RES_X, PANEL_RES_Y);
-  display->flipDMABuffer();
+  presentFrame(display);
 }

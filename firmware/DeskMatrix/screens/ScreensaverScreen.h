@@ -1,6 +1,6 @@
 // firmware/DeskMatrix/screens/ScreensaverScreen.h
 #pragma once
-#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
+#include <Adafruit_GFX.h>
 
 // Loads the currently-uploaded screensaver GIF from LittleFS (see
 // POST /api/screensaver). Call once at boot and again right after a new
@@ -20,7 +20,7 @@ void unloadScreensaverGif();
 // loop() iteration (not gated by any fixed render tick) so playback runs at
 // the GIF's own frame rate rather than being throttled to once per second.
 // Flips the display buffer itself whenever it actually draws a frame.
-void drawScreensaverFrame(MatrixPanel_I2S_DMA* display);
+void drawScreensaverFrame(Adafruit_GFX* display);
 
 // One-shot flag: true the first time this is called after the screensaver
 // GIF (not the DND GIF — they share a decoder, see ScreensaverScreen.cpp)
@@ -42,4 +42,4 @@ void unloadDndGif();
 // whenever the requested path changes) rather than using a second decoder
 // instance — Screensaver and DND are never the active screen at the same
 // time, so there's no need for, or RAM cost from, a separate one.
-void drawDndGifFrame(MatrixPanel_I2S_DMA* display);
+void drawDndGifFrame(Adafruit_GFX* display);

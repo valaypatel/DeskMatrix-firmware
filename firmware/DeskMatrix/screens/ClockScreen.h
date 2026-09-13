@@ -1,6 +1,6 @@
 // firmware/DeskMatrix/screens/ClockScreen.h
 #pragma once
-#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
+#include <Adafruit_GFX.h>
 #include <string>
 
 // Idle-screen clock, ported from Clockwise (github.com/jnthas/clockwise) —
@@ -20,4 +20,4 @@ void loadClockFace(const std::string& name);
 // Not gated to any fixed render tick, same reasoning as
 // drawScreensaverFrame()/drawSpotifyScreen(): each clockface paces its own
 // animation (e.g. Mario's jump) off its own millis() bookkeeping internally.
-void drawClockFrame(MatrixPanel_I2S_DMA* display);
+void drawClockFrame(Adafruit_GFX* display);

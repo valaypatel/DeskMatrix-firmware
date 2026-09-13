@@ -1,6 +1,6 @@
 // firmware/DeskMatrix/screens/SpotifyScreen.h
 #pragma once
-#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
+#include <Adafruit_GFX.h>
 #include <string>
 
 // Renders the current Spotify album art as a spinning vinyl record.
@@ -10,4 +10,4 @@
 // current angle when false (matching a real record on pause). Self-paced
 // (like drawScreensaverFrame()): call every loop() iteration, not gated by
 // any fixed tick — it flips the display buffer itself whenever it redraws.
-void drawSpotifyScreen(MatrixPanel_I2S_DMA* display, const std::string& albumArtUrl, bool isPlaying);
+void drawSpotifyScreen(Adafruit_GFX* display, const std::string& albumArtUrl, bool isPlaying);

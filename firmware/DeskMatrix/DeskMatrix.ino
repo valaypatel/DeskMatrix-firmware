@@ -14,6 +14,7 @@
 #include "screens/DndScreen.h"
 #include "screens/BrbScreen.h"
 #include "web/ConfigServer.h"
+#include "PanelPresent.h"
 
 MatrixPanel_I2S_DMA *dma_display = nullptr;
 WiFiManager wm;
@@ -60,6 +61,7 @@ void initPanel() {
 
   dma_display = new MatrixPanel_I2S_DMA(mxconfig);
   dma_display->begin();
+  g_activeDisplay = dma_display;
   dma_display->setBrightness8(90);
   dma_display->clearScreen();
 }

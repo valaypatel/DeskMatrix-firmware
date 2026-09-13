@@ -1,5 +1,6 @@
 // firmware/DeskMatrix/ScreensaverScreen.cpp
 #include "screens/ScreensaverScreen.h"
+#include "PanelPresent.h"
 #include <AnimatedGIF.h>
 #include <LittleFS.h>
 #include <cstring>
@@ -179,7 +180,7 @@ bool loadPath(const char* path) {
 // CCW, and back without converging) — simpler and more reliable to upload
 // DND/BRB GIFs already rotated to look correct in their target physical
 // orientation, and just display them as-is.
-void playCurrentFrame(MatrixPanel_I2S_DMA* display, const char* path) {
+void playCurrentFrame(Adafruit_GFX* display, const char* path) {
     if (!display) return;
     if (g_loadedPath != path) {
         loadPath(path);
@@ -209,7 +210,7 @@ void playCurrentFrame(MatrixPanel_I2S_DMA* display, const char* path) {
     // gifDraw() touched) so the display always reflects the canvas exactly,
     // regardless of which physical buffer flipDMABuffer() is about to show.
     display->drawRGBBitmap(0, 0, g_canvas, kSize, kSize);
-    display->flipDMABuffer();
+    presentFrame(display);
     g_nextFrameDueMs = nowMs + (delayMs > 0 ? (unsigned long)delayMs : 100UL);
 }
 }  // namespace
@@ -226,7 +227,7 @@ bool loadScreensaverGif() {
     return loadPath(kScreensaverPath);
 }
 
-void drawScreensaverFrame(MatrixPanel_I2S_DMA* display) {
+void drawScreensaverFrame(Adafruit_GFX* display) {
     playCurrentFrame(display, kScreensaverPath);
 }
 
@@ -234,7 +235,7 @@ bool dndGifExists() {
     return LittleFS.exists(kDndPath);
 }
 
-void drawDndGifFrame(MatrixPanel_I2S_DMA* display) {
+void drawDndGifFrame(Adafruit_GFX* display) {
     playCurrentFrame(display, kDndPath);
 }
 
