@@ -1,12 +1,16 @@
 #include "screens/BrbScreen.h"
-#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
+
+namespace {
+uint16_t colorRGB565(uint8_t r, uint8_t g, uint8_t b) {
+    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+}
+}  // namespace
 
 void drawBrbScreen(Adafruit_GFX* display) {
-    auto* panel = static_cast<MatrixPanel_I2S_DMA*>(display);
-    panel->clearScreen();
-    display->fillScreen(panel->color565(0, 10, 25));
+    display->fillScreen(0);
+    display->fillScreen(colorRGB565(0, 10, 25));
     display->setTextSize(1);
-    display->setTextColor(panel->color565(80, 180, 255));
+    display->setTextColor(colorRGB565(80, 180, 255));
     display->setCursor(18, 28);
     display->print("BRB");
 }
