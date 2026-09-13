@@ -50,9 +50,28 @@ jobs:
         git clone --depth 1 https://github.com/witnessmenow/spotify-api-arduino.git \
           "$HOME/Arduino/libraries/SpotifyArduino"
 
-    - name: Create secrets.h from example
+    - name: Create secrets.h
+      env:
+        DEVICE_ADMIN_USER: ${{ secrets.DEVICE_ADMIN_USER }}
+        DEVICE_ADMIN_PASS: ${{ secrets.DEVICE_ADMIN_PASS }}
       run: |
-        cp firmware/DeskMatrix/secrets.h.example firmware/DeskMatrix/secrets.h
+        # Public release binaries must not ship with the placeholder
+        # password from secrets.h.example (it's world-readable in this
+        # repo). Bake in a real password from repo secrets instead, so
+        # every CI-built release is protected by a value nobody outside
+        # this repo's admins can see. Falls back to the placeholder only
+        # if the repo secrets aren't configured (e.g. a fork's first PR
+        # build), so the build never breaks — but that fallback binary
+        # is not safe to deploy as-is.
+        USER="${DEVICE_ADMIN_USER:-admin}"
+        PASS="${DEVICE_ADMIN_PASS:-your_secure_password_here}"
+        {
+          echo "// firmware/DeskMatrix/secrets.h"
+          echo "// Generated at CI build time from repository secrets. Never committed."
+          echo "#pragma once"
+          echo "#define CONFIG_AUTH_USER \"${USER}\""
+          echo "#define CONFIG_AUTH_PASS \"${PASS}\""
+        } > firmware/DeskMatrix/secrets.h
 
     - name: Compile firmware
       run: |
