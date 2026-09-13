@@ -56,8 +56,16 @@ jobs:
 
     - name: Compile firmware
       run: |
+        # esp32:esp32@3.0.0's boards.txt has a known ordering issue where
+        # FlashSize's own default build.partitions (app5M_fat24M_32MB) can
+        # win over the PartitionScheme menu selection depending on how
+        # arduino-cli resolves overlapping menu properties. Force the
+        # correct partitions table directly so the build is deterministic
+        # regardless of that resolution order.
         arduino-cli compile \
           --fqbn esp32:esp32:esp32s3:FlashSize=32M,PSRAM=opi,PartitionScheme=app5M_little24M_32MB,CDCOnBoot=cdc \
+          --build-property "build.partitions=large_littlefs_32MB" \
+          --build-property "upload.maximum_size=4718592" \
           --output-dir build \
           firmware/DeskMatrix/DeskMatrix.ino
 
