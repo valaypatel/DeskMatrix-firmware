@@ -47,9 +47,14 @@ inline int mbedtls_base64_decode(unsigned char* dst, size_t dlen, size_t* olen,
         return dst ? 0 : MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL;
     }
 
+    // validChars already excludes '=' padding characters, so this is
+    // already the correct decoded byte count -- do NOT subtract anything
+    // more for padding here (a previous version of this file did, which
+    // was wrong: it double-counted padding, either underflowing this
+    // size_t subtraction to a huge value or undersizing the output buffer,
+    // depending on input length mod 4).
     size_t needed = (validChars * 3) / 4;
-    // Adjust down for actual padding characters trailing the input.
-    if (padding > 0 && needed > 0) needed -= (padding > 2 ? 2 : padding);
+    (void)padding;
 
     *olen = needed;
 
@@ -72,9 +77,12 @@ inline int mbedtls_base64_decode(unsigned char* dst, size_t dlen, size_t* olen,
         bits += 6;
         if (bits >= 8) {
             bits -= 8;
-            if (outPos < dlen) {
-                dst[outPos++] = static_cast<unsigned char>((accum >> bits) & 0xFF);
+            if (outPos >= dlen) {
+                // Buffer too small -- fail loudly rather than silently
+                // dropping the overflow bytes.
+                return MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL;
             }
+            dst[outPos++] = static_cast<unsigned char>((accum >> bits) & 0xFF);
         }
     }
     *olen = outPos;

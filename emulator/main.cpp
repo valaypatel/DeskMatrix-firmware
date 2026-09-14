@@ -25,8 +25,26 @@ AppConfig appConfig;
 
 enum class Scene { Clock, Screensaver, Dnd, Brb, Spotify };
 
+// Resolves a path relative to the running executable's own directory,
+// rather than the process's current working directory -- so the emulator
+// finds its assets/config regardless of where it's launched from (repo
+// root, emulator/, or emulator/build/, as documented in different places).
+// SDL_GetBasePath() returns the directory containing the executable (here,
+// emulator/build/) with a trailing separator already included; assets/ and
+// fake_config.json both live one level up, in emulator/.
+static std::string resolveEmulatorPath(const char* relativeToEmulatorDir) {
+    std::string result = "./";  // fallback if SDL_GetBasePath() ever fails
+    char* base = SDL_GetBasePath();
+    if (base) {
+        result = std::string(base) + "../";
+        SDL_free(base);
+    }
+    result += relativeToEmulatorDir;
+    return result;
+}
+
 int main() {
-    LittleFS.setAssetsDir("./assets");
+    LittleFS.setAssetsDir(resolveEmulatorPath("assets"));
 
     // Minimal JSON load: fake_config.json only ever has the two fields
     // below for v1, so a full ArduinoJson dependency isn't needed here --
@@ -34,7 +52,7 @@ int main() {
     // pulls in ArduinoJson, which isn't part of this plan's native shim
     // scope.
     {
-        std::ifstream f("./fake_config.json");
+        std::ifstream f(resolveEmulatorPath("fake_config.json"));
         std::stringstream buffer;
         buffer << f.rdbuf();
         std::string contents = buffer.str();
@@ -57,9 +75,18 @@ int main() {
 
     std::cout << "Keys: 1=Mario 2=Words 3=Pacman 4=NyanCat(preset) 5=Canvas(custom JSON)  d=DND b=BRB s=Screensaver c=Clock p=Spotify  Escape closes\n";
 
-    while (panel.pollEvents()) {
+    // Single poll site: NativePanel::pollEvents() drains the whole SDL
+    // event queue internally (fine for the other emulator test binaries,
+    // which only care about SDL_QUIT/Escape), so calling it here AND then
+    // running a second SDL_PollEvent loop below would find nothing left --
+    // every keydown would already have been consumed and discarded. Instead
+    // this loop is the only site that calls SDL_PollEvent, and it forwards
+    // each event to both panel.handleEvent() (quit/Escape) and the hotkey
+    // switch below, so both see every event.
+    while (panel.isRunning()) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
+            panel.handleEvent(event);
             if (event.type != SDL_KEYDOWN) continue;
             switch (event.key.keysym.sym) {
                 case SDLK_1: appConfig.clockFace = "mario"; loadClockFace(appConfig.clockFace); scene = Scene::Clock; break;

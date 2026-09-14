@@ -4,15 +4,33 @@
 // firmware/DeskMatrix declares but never defines at the base level --
 // only derived classes (Block, Mario, Ghost, Pacman, DateI18nEN, ...)
 // override them, and every real call site dispatches through one of
-// those concrete overrides. That's fine under the ESP32 Arduino
-// toolchain's GCC/xtensa-elf linker (confirmed: `arduino-cli compile`
-// against firmware/DeskMatrix/DeskMatrix.ino succeeds unmodified), but
-// Homebrew LLVM's clang++/lld -- required for this native build, see
-// CMakeLists.txt's compiler guard -- follows the Itanium C++ ABI's
-// key-function rule strictly: a class's vtable/typeinfo are emitted in
-// whichever translation unit defines its first non-inline virtual
-// method, and if that method is declared but never defined anywhere,
-// the vtable/typeinfo symbols are simply missing at link time.
+// those concrete overrides (confirmed: zero call sites anywhere in
+// firmware go through a Sprite*/IDateI18n* base pointer/reference -- this
+// is genuinely dead code today, in both builds).
+//
+// Both GCC/xtensa-elf (the real ESP32 Arduino toolchain) and Clang
+// implement the *same* Itanium C++ ABI key-function rule here -- it is
+// NOT a GCC-vs-Clang difference. What actually differs between the two
+// builds:
+//   1. Optimization level: the ESP32 Arduino build compiles at a nonzero
+//      -O level, so GCC optimizes away the base-subobject vptr-store
+//      that would otherwise reference Sprite's/IDateI18n's vtable during
+//      their (never-really-exercised-as-base) constructors -- the
+//      reference simply doesn't survive to link time. This emulator's
+//      CMakeLists.txt sets no CMAKE_BUILD_TYPE (defaults to -O0), so the
+//      vptr-store reference to the undefined vtable survives unoptimized
+//      and becomes a real "undefined reference to vtable for X" at link.
+//   2. RTTI: the ESP32 Arduino build compiles with -fno-rtti, which
+//      eliminates typeinfo generation/references entirely, so a missing
+//      "typeinfo for X" symbol never comes up there. This emulator
+//      build has no -fno-rtti flag, so it needs real typeinfo symbols
+//      for these classes too -- another source of the same class of
+//      link error, unrelated to the vtable/key-function issue above.
+// Both are latent, harmless-today gaps in firmware/DeskMatrix (Sprite::
+// name() and IDateI18n's three methods should arguably be pure virtual
+// `= 0` there, which would make the "never defined at the base" state
+// intentional and compiler-enforced instead of accidental -- worth a
+// follow-up firmware fix, but out of scope for this emulator task).
 //
 // These stubs are never actually invoked (no code constructs a bare
 // Sprite or IDateI18n, or calls these methods before the derived class's

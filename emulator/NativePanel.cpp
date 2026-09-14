@@ -44,3 +44,8 @@ bool NativePanel::pollEvents() {
     }
     return running_;
 }
+
+void NativePanel::handleEvent(const SDL_Event& event) {
+    if (event.type == SDL_QUIT) running_ = false;
+    if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) running_ = false;
+}
