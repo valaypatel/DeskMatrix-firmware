@@ -43,7 +43,7 @@ int pngDrawCallback(PNGDRAW* pDraw) {
     // consumers of `line`.
     if (pDraw->iWidth > 64) return 1;
     uint16_t line[64];
-    g_png.getLineAsRGB565(pDraw, line, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
+    g_png.getLineAsRGB565(pDraw, line, PNG_RGB565_LITTLE_ENDIAN, 0xffffffff);
     if (g_pngDrawDirect) {
         if (g_pngDrawTarget != nullptr) {
             g_pngDrawTarget->drawRGBBitmap(g_pngDrawX, g_pngDrawY + pDraw->y, line, pDraw->iWidth, 1);
