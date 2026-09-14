@@ -28,6 +28,7 @@
 #include <sstream>
 #include <iostream>
 #include <set>
+#include <cstdlib>
 
 AppConfig appConfig;
 
@@ -37,6 +38,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     const char* screenshotPath = (argc >= 3) ? argv[2] : nullptr;
+    int screenshotFrame = (argc >= 4) ? std::atoi(argv[3]) : 150;
 
     static const std::set<std::string> kBuiltinNames = {
         "mario", "words", "pacman", "matrix", "nyancat", "starwars"};
@@ -75,7 +77,7 @@ int main(int argc, char** argv) {
         drawClockFrame(&panel);
         // Well past startup transients (e.g. procedural rain effects still
         // filling their columns) before capturing.
-        if (screenshotPath && frame == 150) {
+        if (screenshotPath && frame == screenshotFrame) {
             panel.saveScreenshotBMP(screenshotPath);
             std::cout << "Saved screenshot to " << screenshotPath << "\n";
             std::cout.flush();
