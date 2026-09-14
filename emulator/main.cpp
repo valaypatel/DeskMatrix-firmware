@@ -7,6 +7,7 @@
 // for the full design.
 #include "NativePanel.h"
 #include "NativeFS.h"
+#include "EmulatorPaths.h"
 #include "../firmware/DeskMatrix/PanelPresent.h"
 #include "../firmware/DeskMatrix/screens/ClockScreen.h"
 #include "../firmware/DeskMatrix/screens/ScreensaverScreen.h"
@@ -24,24 +25,6 @@
 AppConfig appConfig;
 
 enum class Scene { Clock, Screensaver, Dnd, Brb, Spotify };
-
-// Resolves a path relative to the running executable's own directory,
-// rather than the process's current working directory -- so the emulator
-// finds its assets/config regardless of where it's launched from (repo
-// root, emulator/, or emulator/build/, as documented in different places).
-// SDL_GetBasePath() returns the directory containing the executable (here,
-// emulator/build/) with a trailing separator already included; assets/ and
-// fake_config.json both live one level up, in emulator/.
-static std::string resolveEmulatorPath(const char* relativeToEmulatorDir) {
-    std::string result = "./";  // fallback if SDL_GetBasePath() ever fails
-    char* base = SDL_GetBasePath();
-    if (base) {
-        result = std::string(base) + "../";
-        SDL_free(base);
-    }
-    result += relativeToEmulatorDir;
-    return result;
-}
 
 int main() {
     LittleFS.setAssetsDir(resolveEmulatorPath("assets"));
@@ -127,10 +110,19 @@ int main() {
                 }
                 break;
             case Scene::Dnd:
+                // Unlike drawClockFrame()/drawScreensaverFrame()/
+                // drawSpotifyScreen(), drawDndScreen() does not call
+                // presentFrame() internally, so it must be presented
+                // explicitly here (matching DeskMatrix.ino's loop(), which
+                // calls dma_display->flipDMABuffer() right after it).
                 drawDndScreen(&panel);
+                presentFrame(&panel);
                 break;
             case Scene::Brb:
+                // Same reasoning as the Dnd case above: drawBrbScreen()
+                // doesn't self-present either.
                 drawBrbScreen(&panel);
+                presentFrame(&panel);
                 break;
             case Scene::Spotify:
                 drawSpotifyScreen(&panel, "https://example.com/fake-album-art.jpg", true);
