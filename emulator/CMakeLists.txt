@@ -37,3 +37,16 @@ target_include_directories(smoke_test PRIVATE
     ${GFX_LIB_DIR}
 )
 target_compile_options(smoke_test PRIVATE -Wno-inconsistent-missing-override)
+
+add_executable(panel_test
+    panel_test.cpp
+    NativePanel.cpp
+    ${ARDUINO_SHIM_DIR}/Print.cpp
+    ${GFX_LIB_DIR}/Adafruit_GFX.cpp
+)
+target_include_directories(panel_test PRIVATE
+    ${ARDUINO_SHIM_DIR}
+    ${GFX_LIB_DIR}
+    ${SDL2_INCLUDE_DIRS}
+)
+target_link_libraries(panel_test PRIVATE SDL2::SDL2)
