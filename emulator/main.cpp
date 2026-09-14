@@ -56,7 +56,7 @@ int main() {
     Scene scene = Scene::Clock;
     int screensaverLoops = 0;
 
-    std::cout << "Keys: 1=Mario 2=Words 3=Pacman 4=NyanCat(preset) 5=Canvas(custom JSON)  d=DND b=BRB s=Screensaver c=Clock p=Spotify  Escape closes\n";
+    std::cout << "Keys: 1=Mario 2=Words 3=Pacman 4=NyanCat(preset) 5=Canvas(custom JSON) 6=Matrix  d=DND b=BRB s=Screensaver c=Clock p=Spotify  Escape closes\n";
 
     // Single poll site: NativePanel::pollEvents() drains the whole SDL
     // event queue internally (fine for the other emulator test binaries,
@@ -76,6 +76,7 @@ int main() {
                 case SDLK_2: appConfig.clockFace = "words"; loadClockFace(appConfig.clockFace); scene = Scene::Clock; break;
                 case SDLK_3: appConfig.clockFace = "pacman"; loadClockFace(appConfig.clockFace); scene = Scene::Clock; break;
                 case SDLK_4: appConfig.clockFace = "nyancat"; loadClockFace(appConfig.clockFace); scene = Scene::Clock; break;
+                case SDLK_6: appConfig.clockFace = "matrix"; loadClockFace(appConfig.clockFace); scene = Scene::Clock; break;
                 case SDLK_5:
                     // Exercises the actual "Canvas (custom)" paste-JSON path
                     // (appConfig.canvasJson), not just the built-in nyancat/

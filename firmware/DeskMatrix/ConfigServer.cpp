@@ -83,6 +83,7 @@ button:hover{background:#444}
 <option value="mario">Mario</option>
 <option value="words">Words</option>
 <option value="pacman">Pacman</option>
+<option value="matrix">Matrix</option>
 <option value="nyancat">Nyan Cat</option>
 <option value="starwars">Star Wars</option>
 <option value="canvas">Canvas (custom)</option>

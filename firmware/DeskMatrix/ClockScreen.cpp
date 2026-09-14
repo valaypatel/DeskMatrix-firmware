@@ -15,6 +15,7 @@
 #include "screens/clockfaces/canvas/presets/nyancat.json.h"
 #include "screens/clockfaces/canvas/presets/starwars.json.h"
 #include "screens/clockfaces/pacman/Clockface.h"
+#include "screens/clockfaces/matrix/Clockface.h"
 #include "ConfigModel.h"
 
 #include "config.h"
@@ -56,8 +57,8 @@ GFXcanvas16 g_canvas(PANEL_RES_X, PANEL_RES_Y);
 
 void loadClockFace(const std::string& name) {
   std::string resolved = name;
-  if (resolved != "words" && resolved != "pacman" && resolved != "canvas" &&
-      resolved != "nyancat" && resolved != "starwars") {
+  if (resolved != "words" && resolved != "pacman" && resolved != "matrix" &&
+      resolved != "canvas" && resolved != "nyancat" && resolved != "starwars") {
     resolved = "mario";
   }
   bool canvasContentChanged = (resolved == "canvas" && appConfig.canvasJson != g_activeCanvasJson);
@@ -80,6 +81,8 @@ void loadClockFace(const std::string& name) {
     g_activeClockface = new WordsClockface(&g_canvas);
   } else if (resolved == "pacman") {
     g_activeClockface = new PacmanClockface(&g_canvas);
+  } else if (resolved == "matrix") {
+    g_activeClockface = new MatrixClockface(&g_canvas);
   } else if (resolved == "nyancat" || resolved == "starwars" || resolved == "canvas") {
     const char* json = kNyanCatJson;
     if (resolved == "starwars") json = kStarWarsJson;

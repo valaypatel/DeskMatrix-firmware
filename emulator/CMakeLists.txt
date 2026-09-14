@@ -148,6 +148,7 @@ add_executable(deskmatrix_emulator
     ${DESKMATRIX_DIR}/PacmanGhost.cpp
     ${DESKMATRIX_DIR}/PacmanSprite.cpp
     ${DESKMATRIX_DIR}/CanvasClockface.cpp
+    ${DESKMATRIX_DIR}/MatrixClockface.cpp
     ${DESKMATRIX_DIR}/EzTimeFormat.cpp
     FirmwareVtableStubs.cpp
 )
@@ -169,9 +170,9 @@ target_link_libraries(deskmatrix_emulator PRIVATE SDL2::SDL2)
 # unmodified CanvasClockface.cpp/ClockScreen.cpp. Same source list as
 # deskmatrix_emulator (ClockScreen.cpp's non-canvas branches still
 # reference Mario/Words/Pacman as fallback/case targets) with main.cpp
-# swapped for canvas_preview.cpp.
-add_executable(canvas_preview
-    canvas_preview.cpp
+# swapped for clockface_preview.cpp.
+add_executable(clockface_preview
+    clockface_preview.cpp
     NativePanel.cpp
     NativeFS.cpp
     PanelPresentNative.cpp
@@ -204,10 +205,11 @@ add_executable(canvas_preview
     ${DESKMATRIX_DIR}/PacmanGhost.cpp
     ${DESKMATRIX_DIR}/PacmanSprite.cpp
     ${DESKMATRIX_DIR}/CanvasClockface.cpp
+    ${DESKMATRIX_DIR}/MatrixClockface.cpp
     ${DESKMATRIX_DIR}/EzTimeFormat.cpp
     FirmwareVtableStubs.cpp
 )
-target_include_directories(canvas_preview PRIVATE
+target_include_directories(clockface_preview PRIVATE
     ${ARDUINO_SHIM_DIR}
     ${GFX_LIB_DIR}
     ${ANIMATEDGIF_LIB_DIR}/src
@@ -218,4 +220,4 @@ target_include_directories(canvas_preview PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${DESKMATRIX_DIR}
 )
-target_link_libraries(canvas_preview PRIVATE SDL2::SDL2)
+target_link_libraries(clockface_preview PRIVATE SDL2::SDL2)

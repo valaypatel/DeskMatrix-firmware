@@ -54,6 +54,19 @@ working directory.
 | `p`      | Spotify screen                           |
 | `Escape` | Quit                                     |
 
+## Auditioning a clockface
+
+`clockface_preview` renders one clockface on its own, without the rest of
+the emulator:
+
+```bash
+cmake --build emulator/build --target clockface_preview
+./emulator/build/clockface_preview matrix                    # built-in: mario/words/pacman/matrix/nyancat/starwars
+./emulator/build/clockface_preview path/to/theme.json         # a Canvas Clockface theme JSON file, e.g. from
+                                                                # github.com/jnthas/clock-club's shared/ presets
+./emulator/build/clockface_preview matrix out.bmp             # also dumps a BMP screenshot a few seconds in
+```
+
 ## Notes
 
 - `emulator/build/` is a generated CMake build directory and is not
