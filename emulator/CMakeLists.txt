@@ -163,3 +163,59 @@ target_include_directories(deskmatrix_emulator PRIVATE
     ${DESKMATRIX_DIR}
 )
 target_link_libraries(deskmatrix_emulator PRIVATE SDL2::SDL2)
+
+# Development-only utility: preview any Canvas Clockface theme JSON file
+# (e.g. from jnthas/clock-club's shared/ presets) through the real,
+# unmodified CanvasClockface.cpp/ClockScreen.cpp. Same source list as
+# deskmatrix_emulator (ClockScreen.cpp's non-canvas branches still
+# reference Mario/Words/Pacman as fallback/case targets) with main.cpp
+# swapped for canvas_preview.cpp.
+add_executable(canvas_preview
+    canvas_preview.cpp
+    NativePanel.cpp
+    NativeFS.cpp
+    PanelPresentNative.cpp
+    ${ARDUINO_SHIM_DIR}/Print.cpp
+    ${GFX_LIB_DIR}/Adafruit_GFX.cpp
+    ${ANIMATEDGIF_LIB_DIR}/src/AnimatedGIF.cpp
+    "$ENV{HOME}/Documents/Arduino/libraries/JPEGDEC/src/JPEGDEC.cpp"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src/PNGdec.cpp"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src/adler32.c"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src/crc32.c"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src/infback.c"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src/inffast.c"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src/inflate.c"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src/inftrees.c"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src/zutil.c"
+    ${DESKMATRIX_DIR}/ClockScreen.cpp
+    ${DESKMATRIX_DIR}/CWDateTime.cpp
+    ${DESKMATRIX_DIR}/EventBus.cpp
+    ${DESKMATRIX_DIR}/Locator.cpp
+    ${DESKMATRIX_DIR}/Sprite.cpp
+    ${DESKMATRIX_DIR}/MarioClockface.cpp
+    ${DESKMATRIX_DIR}/MarioBlock.cpp
+    ${DESKMATRIX_DIR}/MarioSprite.cpp
+    ${DESKMATRIX_DIR}/WordsClockface.cpp
+    ${DESKMATRIX_DIR}/PacmanClockface.cpp
+    ${DESKMATRIX_DIR}/PacmanClockfaceAi.cpp
+    ${DESKMATRIX_DIR}/PacmanClockfaceMap.cpp
+    ${DESKMATRIX_DIR}/PacmanClockfacePathfinding.cpp
+    ${DESKMATRIX_DIR}/PacmanEntity.cpp
+    ${DESKMATRIX_DIR}/PacmanGhost.cpp
+    ${DESKMATRIX_DIR}/PacmanSprite.cpp
+    ${DESKMATRIX_DIR}/CanvasClockface.cpp
+    ${DESKMATRIX_DIR}/EzTimeFormat.cpp
+    FirmwareVtableStubs.cpp
+)
+target_include_directories(canvas_preview PRIVATE
+    ${ARDUINO_SHIM_DIR}
+    ${GFX_LIB_DIR}
+    ${ANIMATEDGIF_LIB_DIR}/src
+    "$ENV{HOME}/Documents/Arduino/libraries/JPEGDEC/src"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src"
+    ${ARDUINOJSON_LIB_DIR}
+    ${SDL2_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${DESKMATRIX_DIR}
+)
+target_link_libraries(canvas_preview PRIVATE SDL2::SDL2)

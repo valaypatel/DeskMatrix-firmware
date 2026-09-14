@@ -34,6 +34,12 @@ public:
     bool isRunning() const { return running_; }
     void handleEvent(const SDL_Event& event);
 
+    // Debug/dev-tooling only: dumps the current RGB565 buffer to a BMP file
+    // at `path`, so a screenshot can be inspected without macOS Screen
+    // Recording permission (which `screencapture` requires and this host
+    // doesn't have granted). Not used by the shipped emulator/main.cpp.
+    void saveScreenshotBMP(const char* path) const;
+
 private:
     int width_;
     int height_;

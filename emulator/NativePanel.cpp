@@ -45,6 +45,15 @@ bool NativePanel::pollEvents() {
     return running_;
 }
 
+void NativePanel::saveScreenshotBMP(const char* path) const {
+    SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(
+        buffer_, width_, height_, 16, width_ * sizeof(uint16_t), SDL_PIXELFORMAT_RGB565);
+    if (surface) {
+        SDL_SaveBMP(surface, path);
+        SDL_FreeSurface(surface);
+    }
+}
+
 void NativePanel::handleEvent(const SDL_Event& event) {
     if (event.type == SDL_QUIT) running_ = false;
     if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) running_ = false;
