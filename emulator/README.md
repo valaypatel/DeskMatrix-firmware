@@ -18,6 +18,13 @@ missing `<cstdint>` on some machines. `emulator/CMakeLists.txt` looks for
 Homebrew LLVM's `clang++` explicitly and will fail with a clear error
 message if it isn't installed.
 
+The emulator also compiles several Arduino libraries' real source directly
+(the same libraries the firmware itself uses), so `emulator/CMakeLists.txt`
+expects them installed under `~/Documents/Arduino/libraries/`: `Adafruit
+GFX Library`, `AnimatedGIF`, `JPEGDEC`, `PNGdec`, and `ArduinoJson`. See
+[docs/BUILDING.md](../docs/BUILDING.md) or
+[SETUP.md](../SETUP.md) for `arduino-cli lib install` commands.
+
 ## Building and running
 
 ```bash
