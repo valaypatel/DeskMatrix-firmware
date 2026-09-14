@@ -26,6 +26,7 @@ find_package(SDL2 REQUIRED)
 set(ARDUINO_SHIM_DIR ${CMAKE_CURRENT_SOURCE_DIR}/arduino_shim)
 set(GFX_LIB_DIR "$ENV{HOME}/Documents/Arduino/libraries/Adafruit_GFX_Library")
 set(ANIMATEDGIF_LIB_DIR "$ENV{HOME}/Documents/Arduino/libraries/AnimatedGIF")
+find_path(ANIMATEDGIF_SRC_DIR AnimatedGIF.h PATHS ${ANIMATEDGIF_LIB_DIR}/src)
 
 add_executable(smoke_test
     smoke_test.cpp
@@ -50,3 +51,23 @@ target_include_directories(panel_test PRIVATE
     ${SDL2_INCLUDE_DIRS}
 )
 target_link_libraries(panel_test PRIVATE SDL2::SDL2)
+
+add_executable(screensaver_test
+    screensaver_test.cpp
+    NativePanel.cpp
+    NativeFS.cpp
+    PanelPresentNative.cpp
+    ${ARDUINO_SHIM_DIR}/Print.cpp
+    ${GFX_LIB_DIR}/Adafruit_GFX.cpp
+    ${ANIMATEDGIF_LIB_DIR}/src/AnimatedGIF.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../firmware/DeskMatrix/ScreensaverScreen.cpp
+)
+target_include_directories(screensaver_test PRIVATE
+    ${ARDUINO_SHIM_DIR}
+    ${GFX_LIB_DIR}
+    ${ANIMATEDGIF_LIB_DIR}/src
+    ${SDL2_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../firmware/DeskMatrix
+)
+target_link_libraries(screensaver_test PRIVATE SDL2::SDL2)
