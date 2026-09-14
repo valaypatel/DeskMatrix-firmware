@@ -71,3 +71,24 @@ target_include_directories(screensaver_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../firmware/DeskMatrix
 )
 target_link_libraries(screensaver_test PRIVATE SDL2::SDL2)
+
+find_path(JPEGDEC_LIB_DIR JPEGDEC.h PATHS "$ENV{HOME}/Documents/Arduino/libraries/JPEGDEC/src")
+
+add_executable(spotify_test
+    spotify_test.cpp
+    NativePanel.cpp
+    PanelPresentNative.cpp
+    ${ARDUINO_SHIM_DIR}/Print.cpp
+    ${GFX_LIB_DIR}/Adafruit_GFX.cpp
+    "$ENV{HOME}/Documents/Arduino/libraries/JPEGDEC/src/JPEGDEC.cpp"
+    ${CMAKE_CURRENT_SOURCE_DIR}/../firmware/DeskMatrix/SpotifyScreen.cpp
+)
+target_include_directories(spotify_test PRIVATE
+    ${ARDUINO_SHIM_DIR}
+    ${GFX_LIB_DIR}
+    "$ENV{HOME}/Documents/Arduino/libraries/JPEGDEC/src"
+    ${SDL2_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../firmware/DeskMatrix
+)
+target_link_libraries(spotify_test PRIVATE SDL2::SDL2)
