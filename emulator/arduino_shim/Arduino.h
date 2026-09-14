@@ -20,6 +20,27 @@
 #define radians(deg) ((deg) * M_PI / 180.0)
 #define degrees(rad) ((rad) * 180.0 / M_PI)
 
+typedef uint8_t byte;
+typedef bool boolean;
+
+// PROGMEM is a no-op on native builds (see the #define above), so these
+// just read straight from memory -- same values Adafruit_GFX.cpp's own
+// #ifndef-guarded fallbacks would install, but defined here too since
+// ArduinoJson's pgmspace.hpp (pulled in by CanvasClockface.h) needs them
+// and doesn't carry its own portable fallback.
+#ifndef pgm_read_byte
+#define pgm_read_byte(addr) (*(const unsigned char *)(addr))
+#endif
+#ifndef pgm_read_word
+#define pgm_read_word(addr) (*(const unsigned short *)(addr))
+#endif
+#ifndef pgm_read_dword
+#define pgm_read_dword(addr) (*(const unsigned long *)(addr))
+#endif
+#ifndef pgm_read_ptr
+#define pgm_read_ptr(addr) (*(const void *const *)(addr))
+#endif
+
 // FlashStringHelper for F() macro support
 struct __FlashStringHelper;
 

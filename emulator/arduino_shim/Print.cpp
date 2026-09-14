@@ -1,5 +1,6 @@
 // emulator/arduino_shim/Print.cpp
 #include "Print.h"
+#include "WString.h"
 #include <cstdio>
 #include <cstdarg>
 #include <cstring>
@@ -20,8 +21,18 @@ size_t Print::print(int v) {
     return print(buf);
 }
 
+size_t Print::print(const String& s) {
+    return print(s.c_str());
+}
+
 size_t Print::println(const char* s) {
     size_t n = print(s);
+    n += write('\n');
+    return n;
+}
+
+size_t Print::println(int v) {
+    size_t n = print(v);
     n += write('\n');
     return n;
 }

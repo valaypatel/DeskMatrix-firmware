@@ -17,7 +17,19 @@ endif()
 # Set the compiler BEFORE project() so it's used for detection
 set(CMAKE_CXX_COMPILER ${HOMEBREW_LLVM_CLANGXX})
 
-project(deskmatrix_emulator CXX)
+# PNGdec bundles its own small zlib-derived inflate implementation as
+# plain C sources (adler32.c, crc32.c, inflate.c, ...) -- enable C too so
+# deskmatrix_emulator can compile them directly instead of depending on
+# a system zlib.
+find_program(HOMEBREW_LLVM_CLANG clang
+  PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin
+  NO_DEFAULT_PATH
+)
+if(HOMEBREW_LLVM_CLANG)
+  set(CMAKE_C_COMPILER ${HOMEBREW_LLVM_CLANG})
+endif()
+
+project(deskmatrix_emulator CXX C)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -92,3 +104,62 @@ target_include_directories(spotify_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../firmware/DeskMatrix
 )
 target_link_libraries(spotify_test PRIVATE SDL2::SDL2)
+
+set(DESKMATRIX_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../firmware/DeskMatrix)
+# Header-only; CanvasClockface.h (pulled in transitively by ClockScreen.cpp)
+# includes <ArduinoJson.h> directly for parsing canvasJson themes.
+set(ARDUINOJSON_LIB_DIR "$ENV{HOME}/Documents/Arduino/libraries/ArduinoJson/src")
+
+add_executable(deskmatrix_emulator
+    main.cpp
+    NativePanel.cpp
+    NativeFS.cpp
+    PanelPresentNative.cpp
+    ${ARDUINO_SHIM_DIR}/Print.cpp
+    ${GFX_LIB_DIR}/Adafruit_GFX.cpp
+    ${ANIMATEDGIF_LIB_DIR}/src/AnimatedGIF.cpp
+    "$ENV{HOME}/Documents/Arduino/libraries/JPEGDEC/src/JPEGDEC.cpp"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src/PNGdec.cpp"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src/adler32.c"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src/crc32.c"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src/infback.c"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src/inffast.c"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src/inflate.c"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src/inftrees.c"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src/zutil.c"
+    ${DESKMATRIX_DIR}/ClockScreen.cpp
+    ${DESKMATRIX_DIR}/ScreensaverScreen.cpp
+    ${DESKMATRIX_DIR}/DndScreen.cpp
+    ${DESKMATRIX_DIR}/BrbScreen.cpp
+    ${DESKMATRIX_DIR}/SpotifyScreen.cpp
+    ${DESKMATRIX_DIR}/CWDateTime.cpp
+    ${DESKMATRIX_DIR}/EventBus.cpp
+    ${DESKMATRIX_DIR}/Locator.cpp
+    ${DESKMATRIX_DIR}/Sprite.cpp
+    ${DESKMATRIX_DIR}/MarioClockface.cpp
+    ${DESKMATRIX_DIR}/MarioBlock.cpp
+    ${DESKMATRIX_DIR}/MarioSprite.cpp
+    ${DESKMATRIX_DIR}/WordsClockface.cpp
+    ${DESKMATRIX_DIR}/PacmanClockface.cpp
+    ${DESKMATRIX_DIR}/PacmanClockfaceAi.cpp
+    ${DESKMATRIX_DIR}/PacmanClockfaceMap.cpp
+    ${DESKMATRIX_DIR}/PacmanClockfacePathfinding.cpp
+    ${DESKMATRIX_DIR}/PacmanEntity.cpp
+    ${DESKMATRIX_DIR}/PacmanGhost.cpp
+    ${DESKMATRIX_DIR}/PacmanSprite.cpp
+    ${DESKMATRIX_DIR}/CanvasClockface.cpp
+    ${DESKMATRIX_DIR}/EzTimeFormat.cpp
+    FirmwareVtableStubs.cpp
+)
+target_include_directories(deskmatrix_emulator PRIVATE
+    ${ARDUINO_SHIM_DIR}
+    ${GFX_LIB_DIR}
+    ${ANIMATEDGIF_LIB_DIR}/src
+    "$ENV{HOME}/Documents/Arduino/libraries/JPEGDEC/src"
+    "$ENV{HOME}/Documents/Arduino/libraries/PNGdec/src"
+    ${ARDUINOJSON_LIB_DIR}
+    ${SDL2_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${DESKMATRIX_DIR}
+)
+target_link_libraries(deskmatrix_emulator PRIVATE SDL2::SDL2)
